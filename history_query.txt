@@ -1,0 +1,27 @@
+ALTER TABLE `master` ADD `batch` INT NOT NULL AFTER `Family_Model`;
+ALTER TABLE `master_kap2` ADD `batch` INT NOT NULL AFTER `Family_Model`;
+ALTER TABLE `master_td_link` ADD `batch` INT NULL AFTER `Family_Model`;
+ALTER TABLE `master_td_link_kap2`  ADD `batch` INT NULL  AFTER `Family_Model`;
+ALTER TABLE `master_kap2` CHANGE `batch` `batch` INT(11) NOT NULL DEFAULT '1';
+ALTER TABLE `master` CHANGE `batch` `batch` INT(11) NOT NULL DEFAULT '1';
+
+
+ALTER TABLE `plan_wos_kap2` ADD `batch` INT NULL AFTER `plan`;
+ALTER TABLE `plan_wos` ADD `batch` INT NULL AFTER `plan`;
+ALTER TABLE `pis_kap2` ADD `batch` INT NULL AFTER `Family_Model`;
+ALTER TABLE `plan_wos` ADD `suffix_batch` CHAR(25) FIRST;
+ALTER TABLE `plan_wos_kap2` ADD `suffix_batch` CHAR(25) FIRST
+TRUNCATE plan_wos_kap2;
+ALTER TABLE plan_wos_kap2 DROP PRIMARY KEY;
+ALTER TABLE plan_wos_kap2 ADD PRIMARY KEY (`suffix_batch`);
+TRUNCATE plan_wos;
+ALTER TABLE plan_wos DROP PRIMARY KEY;
+ALTER TABLE plan_wos ADD PRIMARY KEY (`suffix_batch`);
+ALTER TABLE `t_docking` ADD `batch` INT NULL AFTER `status_tone`;
+ALTER TABLE `t_docking_kap2` ADD `batch` INT NULL AFTER `status_tone`;
+ALTER TABLE `t_docking` ADD `suffix_batch` CHAR(25) NULL AFTER `batch`;
+ALTER TABLE `t_docking_kap2` ADD `suffix_batch` CHAR(25) NULL AFTER `batch`;
+ALTER TABLE `twotone_setting` ADD `qty_batch_1` INT NULL AFTER `qty`, ADD `qty_batch_2` INT NULL AFTER `qty_batch_1`;
+ALTER TABLE `twotone_setting_kap2` ADD `qty_batch_1` INT NULL AFTER `qty`, ADD `qty_batch_2` INT NULL AFTER `qty_batch_1`;
+ALTER TABLE `singletone_setting` ADD `qty_batch_1` INT NULL AFTER `qty`, ADD `qty_batch_2` INT NULL AFTER `qty_batch_1`
+ALTER TABLE `singletone_setting_kap2` ADD `qty_batch_1` INT NULL AFTER `qty`, ADD `qty_batch_2` INT NULL AFTER `qty_batch_1`
