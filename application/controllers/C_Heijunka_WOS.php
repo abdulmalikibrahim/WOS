@@ -1556,6 +1556,7 @@ class C_Heijunka_WOS extends Construct
 					$sapnik = $worksheet->getCellByColumnAndRow(3, $row)->getValue();
 					$suffix = $worksheet->getCellByColumnAndRow(10, $row)->getValue();
 					$admProdID = $worksheet->getCellByColumnAndRow(14, $row)->getValue();
+					$color = $worksheet->getCellByColumnAndRow(22, $row)->getValue();
 					$pdd = date("Y-m-d",strtotime($worksheet->getCellByColumnAndRow(16, $row)->getValue()));
 					$model = $worksheet->getCellByColumnAndRow(22, $row)->getValue();
                     $bulanPDD = substr($admProdID, 2, 2);
@@ -1577,6 +1578,7 @@ class C_Heijunka_WOS extends Construct
                         $temp_data[] = array(
                             'vin' => $sapnik,
                             'suffix' => $suffix,
+                            'color' => $color,
                             'model' => $model,
                             'pdd' => $pdd,
                             'pdd_input' => $pddDb,
@@ -1586,6 +1588,7 @@ class C_Heijunka_WOS extends Construct
                         $duplicate_data[] = array(
                             'vin' => $sapnik,
                             'suffix' => $suffix,
+                            'color' => $color,
                             'model' => $model,
                             'pdd' => $pdd,
                             'pdd_input' => $pddDb,
