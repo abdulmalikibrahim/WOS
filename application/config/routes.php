@@ -148,6 +148,7 @@ $route['load_pis_kap2'] = 'WOS_Dummy/load_pis_kap2';
 $route['docking_dummy'] = 'WOS_Dummy/docking_dummy';
 
 $route['filtering_color/(:any)'] = 'C_Heijunka_WOS/filtering_color/$1';
+$route['filtering_suffix/(:any)'] = 'C_Heijunka_WOS/filtering_suffix/$1';
 $route['wos_duplicate_checking'] = 'C_Heijunka_WOS/wos_duplicate_checking';
 $route['getDataVINChecking/(:num)'] = 'C_Heijunka_WOS/getDataVINChecking/$1';
 $route['upload_wos_duplicate_checking'] = 'C_Heijunka_WOS/upload_wos_duplicate_checking';

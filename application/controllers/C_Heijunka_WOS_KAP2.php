@@ -1427,58 +1427,6 @@ class C_Heijunka_WOS_KAP2 extends Construct
 		redirect("create_wos");
 	}
 
-    public function filtering_color($tipe)
-    {
-        if($tipe == "page"){
-            $data["dataKap1"] = $this->model->gds("filtering_color_kap2","*","plant = 'KAP1'","result");
-            $data["dataKap2"] = $this->model->gds("filtering_color_kap2","*","plant = 'KAP2'","result");
-            $data["title"] = "Filtering Color";
-            // $data["javascript"] = "filtering_color";
-            $data["content"] = "view/filtering_color";
-            $this->load->view('layout/index',$data);
-        }
-
-        if($tipe == "add"){
-            $plant = $this->input->get("p");
-            $color = $this->input->post("color");
-            $plantInput = $plant == "kap1" ? "KAP1" : "KAP2";
-            $data = [
-                "plant" => $plantInput,
-                "nilai" => strtoupper($color),
-            ];
-            //CHECK DATA
-            $check = $this->model->gds("filtering_color_kap2","id","plant = '$plantInput' AND nilai = '".strtoupper($color)."'","row");
-            if(!empty($check)){
-                $this->voice("gagal.mp3");
-                $this->swal_custom_icon("Gagal", "Data Sudah Ada", base_url('assets/images/emot-sedih.jpg'), "rounded-circle","false");
-                redirect("filtering_color/page");
-            }
-            
-            $proses = $this->model->insert("filtering_color_kap2",$data);
-            if($proses){
-                $this->voice("gagal.mp3");
-                $this->swal_custom_icon("Gagal", "Data Gagal di input", base_url('assets/images/emot-sedih.jpg'), "rounded-circle","false");
-            }else{
-                $this->voice("sukses.mp3");
-                $this->swal_custom_icon("Sukses", "Data Berhasil di input", base_url('assets/images/happy.png'), "","true");
-            }
-            redirect("filtering_color/page");
-        }
-
-        if($tipe == "delete"){
-            $id = $this->input->get("i");
-            $proses = $this->model->delete("filtering_color_kap2","id = '$id'");
-            if($proses){
-                $this->voice("gagal.mp3");
-                $this->swal_custom_icon("Gagal", "Data Gagal di hapus", base_url('assets/images/emot-sedih.jpg'), "rounded-circle","false");
-            }else{
-                $this->voice("sukses.mp3");
-                $this->swal_custom_icon("Sukses", "Data Berhasil di hapus", base_url('assets/images/happy.png'), "","true");
-            }
-            redirect("filtering_color/page");
-        }
-    }
-
     public function wos_duplicate_checking()
     {
         $statuskap1 = $this->model->gds("checking_wos_kap2","pdd_input","kap = '1' GROUP BY pdd_input","result");

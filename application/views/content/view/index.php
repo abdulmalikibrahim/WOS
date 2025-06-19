@@ -62,6 +62,9 @@ if($show){
                                 <li>
                                     <a href="<?=base_url("filtering_color/page")?>" class="text-white font-weight-bold" style="text-decoration:none">1.3.3. Filtering Color</a>
                                 </li>
+                                <li>
+                                    <a href="<?=base_url("filtering_suffix/page")?>" class="text-white font-weight-bold" style="text-decoration:none">1.3.4. Filtering Suffix</a>
+                                </li>
                             </ul>
                         </li>
                     </ul>
