@@ -822,8 +822,16 @@ class C_Heijunka_WOS_KAP2 extends Construct
 
     public function import_wos()
     {
+        header('Content-Type:application/json');
 		$clear_data = $this->model->delete_heijunka("master_kap2", "No !=");
 		$clear_data = $this->model->delete_heijunka("master_td_link_kap2", "No !=");
+        $base_vin = [];
+        $get_base_vin = $this->model->gds("tabungan_vlt_base","*","katashiki_suffix != ''","result_array");
+        if(!empty($get_base_vin)){
+            foreach ($get_base_vin as $data) {
+                $base_vin[$data["katashiki_suffix"]] = $data;
+            }
+        }
 		if (isset($_FILES["upload-file"]["name"])) {
             $path = $_FILES["upload-file"]["tmp_name"];
             $object = PHPExcel_IOFactory::load($path);
@@ -836,17 +844,19 @@ class C_Heijunka_WOS_KAP2 extends Construct
                     $katashiki = $worksheet->getCellByColumnAndRow(12, $row)->getValue();
                     if (!empty($sapnik) && !empty($katashiki) && strlen($sapnik) >= 17) {
                         $no = $no_wos++;
-                        $wos_material = $worksheet->getCellByColumnAndRow(1, $row)->getValue();
-                        $wos_material_description = $worksheet->getCellByColumnAndRow(2, $row)->getValue();
-                        $sap_material = $worksheet->getCellByColumnAndRow(4, $row)->getValue();
-                        $engine_model = $worksheet->getCellByColumnAndRow(5, $row)->getValue();
-                        $engine_prefix = $worksheet->getCellByColumnAndRow(6, $row)->getValue();
-                        $engine_number = $worksheet->getCellByColumnAndRow(7, $row)->getValue();
-                        $plant = $worksheet->getCellByColumnAndRow(8, $row)->getValue();
-                        $chassis_number = $worksheet->getCellByColumnAndRow(9, $row)->getValue();
-                        $lot_code = $worksheet->getCellByColumnAndRow(10, $row)->getValue();
-                        $lot_number = $worksheet->getCellByColumnAndRow(11, $row)->getValue();
                         $katashiki_suffix = $worksheet->getCellByColumnAndRow(13, $row)->getValue();
+                        //VLOOKUP BASE VIN
+                        $sfx = $katashiki_suffix;
+                        $wos_material = !empty($base_vin[$sfx]["wos_material"]) ? $base_vin[$sfx]["wos_material"] : $worksheet->getCellByColumnAndRow(1, $row)->getValue();
+                        $wos_material_description = !empty($base_vin[$sfx]["wos_material_description"]) ? $base_vin[$sfx]["wos_material_description"] : $worksheet->getCellByColumnAndRow(2, $row)->getValue();
+                        $sap_material = !empty($base_vin[$sfx]["sap_material"]) ? $base_vin[$sfx]["sap_material"] : $worksheet->getCellByColumnAndRow(4, $row)->getValue();
+                        $engine_model = !empty($base_vin[$sfx]["engine_model"]) ? $base_vin[$sfx]["engine_model"] : $worksheet->getCellByColumnAndRow(5, $row)->getValue();
+                        $engine_prefix = !empty($base_vin[$sfx]["engine_prefix"]) ? $base_vin[$sfx]["engine_prefix"] : $worksheet->getCellByColumnAndRow(6, $row)->getValue();
+                        $engine_number = !empty($base_vin[$sfx]["engine_number"]) ? $base_vin[$sfx]["engine_number"] : $worksheet->getCellByColumnAndRow(7, $row)->getValue();
+                        $plant = !empty($base_vin[$sfx]["plant"]) ? $base_vin[$sfx]["plant"] : $worksheet->getCellByColumnAndRow(8, $row)->getValue();
+                        $chassis_number = !empty($base_vin[$sfx]["chassis_number"]) ? $base_vin[$sfx]["chassis_number"] : $worksheet->getCellByColumnAndRow(9, $row)->getValue();
+                        $lot_code = !empty($base_vin[$sfx]["lot_code"]) ? $base_vin[$sfx]["lot_code"] : $worksheet->getCellByColumnAndRow(10, $row)->getValue();
+                        $lot_number = !empty($base_vin[$sfx]["lot_number"]) ? $base_vin[$sfx]["lot_number"] : $worksheet->getCellByColumnAndRow(11, $row)->getValue();
                         $adm_production_id = $worksheet->getCellByColumnAndRow(14, $row)->getValue();
                         $tam_production_id = $worksheet->getCellByColumnAndRow(15, $row)->getValue();
                         $pdd = $worksheet->getCellByColumnAndRow(16, $row)->getValue();
@@ -883,13 +893,13 @@ class C_Heijunka_WOS_KAP2 extends Construct
                         } else {
                             $wos_release_date = NULL;
                         }
-                        $sapwos_des = $worksheet->getCellByColumnAndRow(19, $row)->getValue();
-                        $location = $worksheet->getCellByColumnAndRow(20, $row)->getValue();
-                        $color_code = $worksheet->getCellByColumnAndRow(21, $row)->getValue();
+                        $sapwos_des = !empty($base_vin[$sfx]["sapwos_des"]) ? $base_vin[$sfx]["sapwos_des"] : $worksheet->getCellByColumnAndRow(19, $row)->getValue();
+                        $location = !empty($base_vin[$sfx]["location"]) ? $base_vin[$sfx]["location"] : $worksheet->getCellByColumnAndRow(20, $row)->getValue();
+                        $color_code = !empty($base_vin[$sfx]["color_code"]) ? $base_vin[$sfx]["color_code"] : $worksheet->getCellByColumnAndRow(21, $row)->getValue();
                         $model = $worksheet->getCellByColumnAndRow(22, $row)->getValue();
-                        $ed = $worksheet->getCellByColumnAndRow(23, $row)->getValue();
-                        $order_column = $worksheet->getCellByColumnAndRow(24, $row)->getValue();
-                        $destination = $worksheet->getCellByColumnAndRow(25, $row)->getValue();
+                        $ed = !empty($base_vin[$sfx]["ed"]) ? $base_vin[$sfx]["ed"] : $worksheet->getCellByColumnAndRow(23, $row)->getValue();
+                        $order_column = !empty($base_vin[$sfx]["order_column"]) ? $base_vin[$sfx]["order_column"] : $worksheet->getCellByColumnAndRow(24, $row)->getValue();
+                        $destination = !empty($base_vin[$sfx]["destination"]) ? $base_vin[$sfx]["destination"] : $worksheet->getCellByColumnAndRow(25, $row)->getValue();
                         if (!empty($sapnik)) {
                             if($model == "X01X"){
                                 $temp_data_td_link[] = array(
