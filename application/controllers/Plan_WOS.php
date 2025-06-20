@@ -69,17 +69,19 @@ class Plan_WOS extends Construct {
 				$batch++;
 			}
 
-			if($check_pokayoke_multiples5->status > 0 && $plan == "KAP2"){
+			if($check_pokayoke_multiples5->status > 0 && $plant == "KAP2"){
 				foreach (['Batch 1' => $d74a_count_b1, 'Batch 2' => $d74a_count_b2] as $label => $count) {
-					if ($count % 5 !== 0) {
-						$this->voice("gagal.mp3");
-						$this->swal_custom_icon("Gagal", "Untuk D74A Link $label bukan kelipatan 5", base_url('assets/images/emot-sedih.jpg'), "rounded-circle", "true");
-						redirect("plan_wos");
+					if($count > 0){
+						if ($count % 5 !== 0) {
+							$this->voice("gagal.mp3");
+							$this->swal_custom_icon("Gagal", "Untuk D74A Link $label bukan kelipatan 5", base_url('assets/images/emot-sedih.jpg'), "rounded-circle", "true");
+							redirect("plan_wos");
+						}
 					}
 				}
 			}
 
-			if($plan == "KAP1"){
+			if($plant == "KAP1"){
 				//KAP 1
 				$clear_plan_wos = $this->model->delete("plan_wos","suffix !=");
 				$clear_docking = $this->model->delete("t_docking","sapnik !=");
