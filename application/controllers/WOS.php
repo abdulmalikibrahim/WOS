@@ -208,7 +208,7 @@ class WOS extends Construct {
 			$excel->setActiveSheetIndex(0)->setCellValue('Q' . $numrow, strtoupper(date("d M Y",strtotime($data_wos->Plan_Delivery_Date))));
 			$excel->setActiveSheetIndex(0)->setCellValue('R' . $numrow, date("Ymd",strtotime($plan_jig_in)));
 			$excel->setActiveSheetIndex(0)->setCellValue('S' . $numrow, $wos_release_date);
-			$excel->setActiveSheetIndex(0)->setCellValue('T' . $numrow, $data_wos->SAPWOS_DES);
+			$excel->setActiveSheetIndex(0)->setCellValue('T' . $numrow, $data_wos->Model == "X02X" ? $data_wos->WOS_Material."".date("Ymd",strtotime($plan_jig_in)) : $data_wos->SAPWOS_DES);
 			$excel->setActiveSheetIndex(0)->setCellValue('U' . $numrow, $data_wos->Location);
 			$excel->setActiveSheetIndex(0)->setCellValue('V' . $numrow, $data_wos->Color_Code);
 			$excel->setActiveSheetIndex(0)->setCellValue('W' . $numrow, $data_wos->Model);
