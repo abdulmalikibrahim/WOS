@@ -1598,7 +1598,7 @@ class C_Heijunka_WOS extends Construct
             if($reupload == "1"){
                 $this->model->delete("checking_wos","kap = '$plant' AND pdd_input = '$pddInput'");
             }
-            $dataVIN = $this->model->gds("checking_wos","vin,pdd","vin != ''","result_array");
+            $dataVIN = $this->model->gds("checking_wos","vin,pdd_input as pdd","vin != ''","result_array");
             $vinList = array_column($dataVIN, 'vin');
             $pddList = array_column($dataVIN, 'pdd');
             

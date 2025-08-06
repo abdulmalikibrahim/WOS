@@ -63,7 +63,7 @@ class Upload_VLT extends Construct
 								$wos_release_date = NULL;
 							}
 							$sapwos_des = $worksheet->getCellByColumnAndRow(19, $row)->getValue();
-							$location = $worksheet->getCellByColumnAndRow(20, $row)->getValue();
+							$location = "";
 							$color_code = $worksheet->getCellByColumnAndRow(21, $row)->getValue();
 							$ed = $worksheet->getCellByColumnAndRow(22, $row)->getValue();
 							$order_column = $worksheet->getCellByColumnAndRow(23, $row)->getValue();

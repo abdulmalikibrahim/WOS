@@ -159,3 +159,4 @@ $route['search_vin'] = 'C_Heijunka_WOS/search_vin';
 $route['downloadVIN'] = 'C_Heijunka_WOS/downloadVIN';
 
 $route['delete_unit_batam'] = 'Tabungan/delete_unit_batam';
+$route['api/checking_wos'] = 'API/checking_wos';
