@@ -16,20 +16,23 @@
 
 <div class="card card-body mt-4">
     <div class="row">
-        <div class="col-4">
-            <label class="text-danger mb-2" style="font-size:15px; font-weight:bold;">Upload Tabungan VLT</i></label>
-            <form action="<?=base_url("import_tabungan?t=kap2&p=docking_wos_dummy")?>" method="post" id="form_upload_kap2" enctype="multipart/form-data">
-                <div class="input-group">
-                    <div class="custom-file">
-                        <input type="file" class="custom-file-input" id="upload-excel-kap2" name="upload-file" accept=".xls">
-                        <label class="custom-file-label" for="customFile-kap2" id="customFile-kap2">Pilih File Excel</label>
-                    </div>
-                </div>
-            </form>
+		<div class="col-2">
+            <label class="text-danger mb-2" style="font-size:15px; font-weight:bold;">Pilih Plant</i></label>
+			<select name="kap" id="kap" class="form-control" onchange="checkingURLUpload(`yes`)">
+				<option value="">- PILIH PLANT -</option>
+				<option value="kap1">KAP1</option>
+				<option value="kap2">KAP2</option>
+			</select>
+		</div>
+        <div class="col-3 form-upload">
+            <label class="text-danger mb-2" style="font-size:15px; font-weight:bold;">Ambil Tabungan VLT <span class="plant"></span></label>
+            <a id="btn-pick-bank-vlt" href="<?=base_url("pick_bank_vlt")?>" class="btn btn-info w-100" style="height:37px; line-height:1.6rem;">
+                <i class="fas fa-database mr-1"></i> Pilih dari Bank VLT
+            </a>
         </div>
-        <div class="col-4">
-            <label class="text-danger mb-2" style="font-size:15px; font-weight:bold;">Upload PIS Dummy</i></label>
-            <form action="<?=base_url("import_pis_kap2?t=kap2&p=docking_wos_dummy")?>" method="post" id="form_upload_pis_kap2" enctype="multipart/form-data">
+        <div class="col-3 form-upload">
+            <label class="text-danger mb-2" style="font-size:15px; font-weight:bold;">Upload PIS Dummy <span class="plant"></span></i></label>
+            <form action="" data-url="<?=base_url("import_pis_kap2?p=docking_wos_dummy")?>" method="post" id="form_upload_pis_kap" enctype="multipart/form-data">
                 <div class="input-group">
                     <div class="custom-file">
                         <input type="file" class="custom-file-input" id="upload-excel-pis-kap2" name="upload-file" accept=".xls">
@@ -39,23 +42,26 @@
             </form>
         </div>
         <div class="col-4 d-flex align-items-end">
-            <a href="<?= base_url("docking_dummy"); ?>" class="btn btn-sm btn-secondary" style="height:35px; font-size:10pt;" id="docking" title="Docking" data-tipe="kap2" onclick="docking(this)">Docking</a>
+            <a href="" data-url="<?= base_url("docking_dummy"); ?>" class="btn btn-sm btn-secondary form-upload" style="height:35px; font-size:10pt;" id="docking" title="Docking" data-tipe="kap2" onclick="docking(this)">Docking</a>
         </div>
-        <div class="col-4">
+	</div>
+	<div class="row">
+		<div class="col-2"></div>
+        <div class="col-3 form-upload">
             <?php
             if(!empty($this->session->userdata("tabungan_actual"))){
-                echo '<div class="card card-body bg-success p-1 text-center mt-2 text-light font-weight-bold">UPLOAD SUKSES</div>';
+                echo '<div class="card card-body bg-success p-1 text-center mt-2 text-light font-weight-bold">DATA SIAP</div>';
             }
             ?>
         </div>
-        <div class="col-4">
+        <div class="col-3 form-upload">
             <?php
             if(!empty($this->session->userdata("pis_dummy"))){
                 echo '<div class="card card-body bg-success p-1 text-center mt-2 text-light font-weight-bold">UPLOAD SUKSES</div>';
             }
             ?>
         </div>
-        <div class="col-4">
+        <div class="col-3 form-upload">
             <?php
             if(!empty($this->session->userdata("pis_dummy")) || !empty($this->session->userdata("tabungan_actual"))){
                 echo '<div class="card card-body bg-light border-0 p-1 text-center mt-2 text-light font-weight-bold">UPLOAD SUKSES</div>';

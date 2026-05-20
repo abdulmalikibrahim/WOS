@@ -1,0 +1,1 @@
+INSERT INTO `setting_pokayoke` (`id`, `name`, `status`) VALUES (NULL, 'D55L Multiples of 5', '1');

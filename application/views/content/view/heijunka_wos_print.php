@@ -230,9 +230,9 @@
                                 if($this->input->get("group_model") == "yes"){
                                     $data_wos = $this->model->union_heijunka_print("ORDER BY FIELD(Model,'D55L','D74A','D52B'), No DESC");
                                 }else{
-                                    $data_wos = $this->model->union_heijunka_print("ORDER BY batch,No DESC");
+                                    $data_wos = $this->model->union_heijunka_print("ORDER BY No DESC");
                                 }
-                                $data_wos_arr = $this->model->gds_heijunka("master_print","*","No != '' ORDER BY batch,No DESC","result");
+                                $data_wos_arr = $this->model->gds_heijunka("master_print","*","No != '' ORDER BY No DESC","result");
                                 foreach ($data_wos as $data_wos) {
                                     $explode = explode(',', $data_wos->Color);
                                     $Color_Cell = $explode[0];

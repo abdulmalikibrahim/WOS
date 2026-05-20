@@ -4,7 +4,6 @@ $pdd = $this->input->post("pdd");
 $plan_jig_in = $this->input->post("plan_jig_in");
 header ("Content-type: application/vnd-ms-excel");
 header("Content-Disposition: attachment;filename = HARD COPY WOS KAP2 PDD ".date("d-m-Y",strtotime($pdd)).".xls");
-// header("Content-type: application/json");
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -16,7 +15,6 @@ header("Content-Disposition: attachment;filename = HARD COPY WOS KAP2 PDD ".date
 </head>
 <body style="font-size:7pt;">
     <?php
-        $suffixExport = ["ZH" => 1,"XK" => 1,"VZ" => 1,"67" => 1,"64" => 1,"62" => 1,"VW" => 1,"ZB" => 1,"VV" => 1,"ZC" => 1,"65" => 1,"U2" => 1,"ZE" => 1,"WA" => 1,"5H" => 1,"9F" => 1,"9G" => 1,"ZF" => 1,"ZG" => 1,"WC" => 1,"66" => 1,"VX" => 1,"VY" => 1,"5J" => 1];
         $data_wos = $this->model->union_heijunka_kap2("ORDER BY batch,No DESC");
         $count_wos = count($data_wos);
         $wos100 = ceil($count_wos / 100);
@@ -38,8 +36,8 @@ header("Content-Disposition: attachment;filename = HARD COPY WOS KAP2 PDD ".date
                 $start1 = ($end_hit-100);
                 $start2 = $start1 + 50;
             }
-            $data_wos_hc1 = array_slice($data_wos, $start1, $limit);
-			$data_wos_hc2 = array_slice($data_wos, $start2, $limit);
+            $data_wos_hc2 = $this->model->union_heijunka_limit_kap2($start2,$limit,"ORDER BY batch,No DESC");
+            $data_wos_hc1 = $this->model->union_heijunka_limit_kap2($start1,$limit,"ORDER BY batch,No DESC");
             if(!empty($data_wos_hc1)){
                 $table1 .= '
                     <table width="100%" border="1">';
@@ -207,7 +205,7 @@ header("Content-Disposition: attachment;filename = HARD COPY WOS KAP2 PDD ".date
                         $val_zero_defect = "";
                     }
                     //PID
-                    $pid_val_1 = "5X".date("md",strtotime($pdd)).sprintf("%04d",$nomor);
+                    $pid_val_1 = "3Z".date("md",strtotime($pdd)).sprintf("%04d",$nomor);
 
                     $exp = explode(" ",$data_wos_hc1->WOS_Material_Description);
                     $mat_des = '';
@@ -440,7 +438,7 @@ header("Content-Disposition: attachment;filename = HARD COPY WOS KAP2 PDD ".date
                         $val_zero_defect_2 = "";
                     }
                     //PID
-                    $pid_val_2 = "5X".date("md",strtotime($pdd)).sprintf("%04d",$nomor);
+                    $pid_val_2 = "3Z".date("md",strtotime($pdd)).sprintf("%04d",$nomor);
 
                     $exp = explode(" ",$data_wos_hc2->WOS_Material_Description);
                     $mat_des = '';

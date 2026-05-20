@@ -52,7 +52,7 @@ if(empty($this->input->get("download"))){
 								<th class="align-middle">Route</th>
 								<th class="align-middle">Qty</th>
 								<th class="align-middle">Keterangan</th>
-								<!-- <th class="align-middle">Action</th> -->
+								<th class="align-middle">Line</th>
 							</tr>
 						</thead>
 						<tbody id="data_tabungan">
@@ -83,6 +83,7 @@ if(empty($this->input->get("download"))){
 										<td class="align-middle"><?= $dm->Route; ?></td>
 										<td class="align-middle"><?= $dm->Qty; ?></td>
 										<td class="align-middle"><?= $dm->Keterangan; ?></td>
+										<td class="align-middle"><?= !empty($dm->line) ? "KAP $dm->line" : ""; ?></td>
 										<!-- <?= $row_action; ?> -->
 									</tr>
 									<?php

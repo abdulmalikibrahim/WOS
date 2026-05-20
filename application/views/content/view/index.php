@@ -40,10 +40,13 @@ if($show){
                                     <a href="<?=base_url("heijunka_wos_kap2")?>" class="text-white font-weight-bold" style="text-decoration:none">1.1.4. Heijunka WOS KAP 2</a>
                                 </li>
                                 <li>
-                                    <a href="<?=base_url("docking_wos_dummy")?>" class="text-white font-weight-bold" style="text-decoration:none">1.1.5. Docking WOS Dummy to WOS With VIN KAP2</a>
+                                    <a href="<?=base_url("docking_wos_dummy")?>" class="text-white font-weight-bold" style="text-decoration:none">1.1.5. Docking WOS Dummy to WOS VIN</a>
                                 </li>
                                 <li>
                                     <a href="<?=base_url("wos_duplicate_checking")?>" class="text-white font-weight-bold" style="text-decoration:none">1.1.6. WOS Duplicate Checking</a>
+                                </li>
+                                <li>
+                                    <a href="<?=base_url("bank_vlt")?>" class="text-white font-weight-bold" style="text-decoration:none">1.1.7. Bank VLT</a>
                                 </li>
                             </ul>
                         </li>
@@ -60,10 +63,7 @@ if($show){
                                     <a href="<?=base_url("heijunka_wos_print")?>" class="text-white font-weight-bold" style="text-decoration:none">1.3.3. Backup Vehicle Card Print</a>
                                 </li>
                                 <li>
-                                    <a href="<?=base_url("filtering_color/page")?>" class="text-white font-weight-bold" style="text-decoration:none">1.3.3. Filtering Color</a>
-                                </li>
-                                <li>
-                                    <a href="<?=base_url("filtering_suffix/page")?>" class="text-white font-weight-bold" style="text-decoration:none">1.3.4. Filtering Suffix</a>
+                                    <a href="<?=base_url("filter/page")?>" class="text-white font-weight-bold" style="text-decoration:none">1.3.3. Setting Filter</a>
                                 </li>
                             </ul>
                         </li>
@@ -89,7 +89,8 @@ if($show){
             </ol>
         </div>
     </div>
-    <img src="<?=base_url("assets/images/bpn-rocky.png")?>" style="width:75%; height:827px; object-fit: cover; object-position: center center; position: fixed; bottom: 0px; right: 0px; z-index: -1;">
+	<div style="position: absolute; bottom: 20px; right: 20px;"><label class="font-weight-bold text-light" style="font-size:20pt;">WOCS V.10.0</label></div>
+    <img src="<?=base_url("assets/images/bg-05.png")?>" style="width:70%; height:800px; object-fit: cover; object-position: center center; position: fixed; bottom: 0px; right: 0px; z-index: -1;">
     <?php
 }else{
     ?>
@@ -99,20 +100,20 @@ if($show){
 ?>
 <script type="text/javascript" src="<?= base_url("assets/js/jquery/jquery.min.js") ?>"></script>
 <script>
-    $(".sub_create_wos").hide(200);
-    $(".sub_master_setting").hide(200);
+    // $(".sub_create_wos").hide(200);
+    // $(".sub_master_setting").hide(200);
 
-    $("#create_wos").click(function(e) {
-        show = e.currentTarget.dataset.show;
-        id = e.currentTarget.id;
-        if(show == "true"){
-            show_sub("sub_"+id);
-        }else{
-            hide_sub("sub_"+id);
-        }
-        newshow = show == "true" ? "false" : "true";
-        $(this).attr("data-show",newshow);
-    });
+    // $("#create_wos").click(function(e) {
+    //     show = e.currentTarget.dataset.show;
+    //     id = e.currentTarget.id;
+    //     if(show == "true"){
+    //         show_sub("sub_"+id);
+    //     }else{
+    //         hide_sub("sub_"+id);
+    //     }
+    //     newshow = show == "true" ? "false" : "true";
+    //     $(this).attr("data-show",newshow);
+    // });
     
     $("#master_setting").click(function(e) {
         show = e.currentTarget.dataset.show;

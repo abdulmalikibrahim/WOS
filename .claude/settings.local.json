@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(composer config:*)",
+      "Bash(curl -s -o \"w:/www/wosv3/assets/js/dataTables.min.js\" \"https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js\")",
+      "Bash(curl -s -o \"w:/www/wosv3/assets/js/dataTables.bootstrap4.min.js\" \"https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap4.min.js\")",
+      "Bash(curl -s -o \"w:/www/wosv3/assets/css/dataTables.bootstrap4.min.css\" \"https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap4.min.css\")"
+    ]
+  }
+}

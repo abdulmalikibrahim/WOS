@@ -47,7 +47,7 @@
 					<td colspan="4">
 						<table style="width:100%; height:36px;">
 							<td style="vertical-align: top; border:0; width:50%;">PLAN DELIVERY DATE :</td>
-							<td style="width:159px; text-align:right; line-height: 50%; font-weight: bold; font-size: 25px;letter-spacing: -1px; border:0;"><?= date("d F y",strtotime($data_wos->Plan_Delivery_Date)); ?></td>
+							<td style="width:159px; text-align:right; line-height: 50%; font-weight: bold; font-size: 25px;letter-spacing: -1px; border:0;"><?= date("d M y",strtotime($data_wos->Plan_Delivery_Date)); ?></td>
 						</table>
 					</td>
 				</tr>

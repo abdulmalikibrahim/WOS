@@ -90,7 +90,7 @@ class PHPExcel_Worksheet_RowIterator implements Iterator
     public function resetStart($startRow = 1)
     {
         if ($startRow > $this->subject->getHighestRow()) {
-            throw new PHPExcel_Exception("Start row ({$startRow}) is beyond highest row ({$this->subject->getHighestRow()})");
+            throw new PHPExcel_Exception("Start row ([$startRow]) is beyond highest row ({$this->subject->getHighestRow()})");
         }
 
         $this->startRow = $startRow;

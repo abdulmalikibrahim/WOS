@@ -9,12 +9,36 @@ if(!empty($this->session->flashdata("swal"))){
 <script>
     <?php
     if(!empty($this->input->get("proses"))){
-        echo "heijunka('check_batch','color','suffix');";
+		if($this->input->get("docking") == "yes"){
+			echo "heijunka('check_batch','change_order','color');";
+		}else{
+			echo "heijunka('check_batch','color','suffix');";
+		}
     }
     ?>
     function formdate_show() {
         $("#formdate").modal("show");
     }
+
+	$("#btn-save").click(function() {
+        dummy = $("#dummy").val();
+        if(dummy == "YES"){
+            no = 5;
+            const intervalID = setInterval(() => {
+                if(no == 5){
+                    $(this).attr("disabled",true);
+                }
+                $(this).html("Reload Page "+no+"s");
+                no--;
+                if(no <= 0){
+                    clearInterval(intervalID);
+                    // location.reload()
+                    window.location.href = '<?= base_url("heijunka_wos?start_vin="); ?>' + $("#start_vin").val() + "&dummy=" + $("#dummy").val().toLowerCase();
+                    // console.log("Reload");
+                }
+            }, 1000);
+        }
+    });
 
     function swalok(html,ok_btn) {
         Swal.fire({
@@ -55,7 +79,10 @@ if(!empty($this->session->flashdata("swal"))){
 
     function heijunka(proses,next,next2,action) {
         base = "<?=base_url()?>";
-        url = base+"heijunka_"+proses;
+		const docking = '<?= $this->input->get("docking"); ?>';
+		const dummy = '<?= $this->input->get("dummy"); ?>';
+        url = `${base}heijunka_${proses}?docking=${docking}`;
+
         $.ajax({
             url:url,
             dataType:"JSON",
@@ -65,12 +92,22 @@ if(!empty($this->session->flashdata("swal"))){
             success:function(r) {
                 d = JSON.parse(JSON.stringify(r));
                 if(action != "Refresh"){
-                    if(d.status == "sukses"){
+                    if(d.status == "sukses" || d.status == "tidak ada two tone"){
                         voice("sukses.mp3");
                         if(proses == "check_batch"){
-                            next_proses = "heijunka('color','suffix','sub');";
-                        }else if(proses == "color"){
-                            next_proses = "heijunka('suffix','sub','model','Next_Proses')";
+							if(docking == "yes"){
+								next_proses = "heijunka('change_order','color','twotone','Next_Proses');";
+							}else{
+								next_proses = "heijunka('color','suffix','sub','Next_Proses');";
+							}
+                        }else if(proses == "change_order"){
+							next_proses = "heijunka('color','twotone','both','Next_Proses');";
+						}else if(proses == "color"){
+							if(docking == "yes"){
+                            	next_proses = "heijunka('twotone','both','Selesai','Next_Proses')";
+							}else{
+								next_proses = "heijunka('suffix','sub','model','Next_Proses')";
+							}
                         }else if(proses == "suffix"){
                             next_proses = "heijunka('sub','model','twotone','Next_Proses')";
                         }else if(proses == "sub"){
@@ -81,7 +118,9 @@ if(!empty($this->session->flashdata("swal"))){
                             next_proses = "heijunka('both','Selesai','','Next_Proses')";
                         }
                         if(next == "Selesai"){
-                            swalok('Heijunka '+proses+' selesai<br><br><a href="<?=base_url("heijunka_wos")?>" class="btn btn-info">Selesai</a>');
+							let urlFinish = '<?= base_url("heijunka_wos?"); ?>';
+							urlFinish = `${urlFinish}docking=${docking}&dummy=${dummy}`;
+                            swalok('Heijunka '+proses+' selesai<br><br><a href="'+urlFinish+'" class="btn btn-info">Selesai</a>');
                         }else{
                             swalok("Heijunka "+proses+" selesai<br>Klik di bawah ini untuk heijunka "+next+"<br><br><a href='javascript:void(0)' onclick="+next_proses+" class='btn btn-sm btn-info text-white'>Heijunka "+next+"</a>");
                         }
@@ -93,8 +132,8 @@ if(!empty($this->session->flashdata("swal"))){
                         swal.fire("Error","Proses Heijunka Gagal","error");
                     }
                 }else{
-                    if(d.status == "sukses"){
-                        swalok("Heijunka "+proses+" selesai<br><br><a href='javascript:void(0)' onclick='reload()' class='btn btn-sm btn-info text-white'>Selesai</a>");
+                    if(d.status == "sukses" || d.status == "tidak ada two tone"){
+                        swalok("Heijunka "+proses+" selesai<br><br><a href='javascript:void(0)' onclick='reload(`"+docking+"`,`"+dummy+"`)' class='btn btn-sm btn-info text-white'>Selesai</a>");
                     }else if(d.status == 'tidak ada two tone'){
                         swal.fire("Error","Tidak ada data Two Tone","error");
                     }else if(d.status == "mentok"){
@@ -112,8 +151,9 @@ if(!empty($this->session->flashdata("swal"))){
         })
     }
 
-	function reload() {
-		window.location.href = '<?= base_url("heijunka_wos") ?>';
+	function reload(docking = null, dummy = null) {
+		const urlReload = '<?= base_url("heijunka_wos?") ?>';
+		window.location.href = `${urlReload}docking=${docking}&dummy=${dummy}`;
 	}
 
     $("#upload-excel").change(function() {

@@ -6,7 +6,7 @@ include_once (dirname(__FILE__) . "/Construct.php");
 class WOS_Dummy extends Construct {
 	public function index()
 	{
-		$data["title"] = "Docking WOS Dummy to WOS With VIN KAP2";
+		$data["title"] = "Docking WOS Dummy to WOS VIN";
 		$data["content"] = "view/docking_wos_dummy";
 		$data["javascript"] = "docking_wos_dummy";
 		$this->load->view('layout/index',$data);
@@ -14,7 +14,9 @@ class WOS_Dummy extends Construct {
 
 	public function import_pis_kap2()
 	{
-		$clear_data = $this->model->delete("pis_kap2", "No !=");
+		$kap = $this->input->get("t");
+		$table = $kap == "kap1" ? "pis_kap1" : "pis_kap2";
+		$clear_data = $this->model->delete($table, "No !=");
 		if (isset($_FILES["upload-file"]["name"])) {
 			$path = $_FILES["upload-file"]["tmp_name"];
 			$object = PHPExcel_IOFactory::load($path);
@@ -145,7 +147,7 @@ class WOS_Dummy extends Construct {
 					}
 				}
 			}
-			$insert = $this->model->insert_batch("pis_kap2", $temp_data);
+			$insert = $this->model->insert_batch($table, $temp_data);
 			if ($insert) {
 				$this->session->set_userdata(array("pis_dummy" => "YES"));
 				$this->voice("sukses.mp3");
@@ -163,7 +165,9 @@ class WOS_Dummy extends Construct {
 
 	public function load_pis_kap2()
 	{
-		$data_tabungan = $this->model->gds("pis_kap2","*","sapnik !=","result");
+		$kap = $this->input->get("t");
+		$table = $kap == "kap1" ? "pis_kap1" : "pis_kap2";
+		$data_tabungan = $this->model->gds($table,"*","sapnik !=","result");
 		$load = '';
 		if(!empty($data_tabungan)){
 			$no = 1;
@@ -213,9 +217,14 @@ class WOS_Dummy extends Construct {
 		header('Content-Type: application/json');
 		//CLEAR DATA USE VLT
 		$update_data = ["use_vlt" => "0"];
-		$this->model->update("tabungan_vlt_kap2","sapnik !=",$update_data);
+		
+		$kap = $this->input->get("t");
+		$table = $kap == "kap1" ? "pis_kap1" : "pis_kap2";
+		$tableTabungan = $kap == "kap1" ? "tabungan_vlt" : "tabungan_vlt_kap2";
+		$tableMaster = $kap == "kap1" ? "master" : "master_kap2";
 
-		$dataPisDummy = $this->model->gds("pis_kap2","Katashiki_Sfx,Transmisi,Color,Bot_Color,Model,Model_Name","No != '' ORDER BY No ASC","result");
+		$this->model->update($tableTabungan,"sapnik !=",$update_data);
+		$dataPisDummy = $this->model->gds($table,"*","No != '' ORDER BY No ASC","result");
 		if(empty($dataPisDummy)){
 			$this->voice("gagal.mp3");
 			$this->swal_custom_icon("Gagal", 'Sepertinya anda belum upload data PIS', base_url('assets/images/emot-sedih.jpg'), "rounded-circle","false");
@@ -224,13 +233,50 @@ class WOS_Dummy extends Construct {
 
 		$data_input = [];
 		$suffix_not_docking = [];
-		$count_pis_kap2 = $this->model->gds("pis_kap2","COUNT(No) as counting","No !=","row");
-		$no = $count_pis_kap2->counting;
+		$count_pis_kap = $this->model->gds($table,"COUNT(No) as counting","No !=","row");
+		$no = $count_pis_kap->counting;
 		foreach ($dataPisDummy as $dpd) {
 			$suffix = $dpd->Katashiki_Sfx;
 			//GET DATA TABUNGAN
-			$data_tabungan = $this->model->gds("tabungan_vlt_kap2","*","katashiki_suffix = '$suffix' AND color_code != 'R75' AND use_vlt = '0' ORDER BY plan_delivery_date ASC","row");
+			$data_tabungan = $this->model->gds($tableTabungan,"*","katashiki_suffix = '$suffix' AND use_vlt = '0' ORDER BY plan_delivery_date ASC","row");
 			
+			if($kap == "kap2" && $dpd->Model == "D55L"){
+				$data_input[] = array(
+					'No' => $no,
+					'WOS_Material' => $dpd->WOS_Material,
+					'WOS_Material_Description' => $dpd->WOS_Material_Description,
+					'SAPNIK' => $dpd->SAPNIK,
+					'SAP_Material' => $dpd->SAP_Material,
+					'Engine_Model' => $dpd->Engine_Model,
+					'Engine_Prefix' => $dpd->Engine_Prefix,
+					'Engine_Number' => $dpd->Engine_Number,
+					'Plant' => $dpd->Plant,
+					'Chassis_Number' => $dpd->Chassis_Number,
+					'Lot_Code' => $dpd->Lot_Code,
+					'Lot_Number' => $dpd->Lot_Number,
+					'Katashiki' => $dpd->Katashiki,
+					'Katashiki_Sfx' => $dpd->Katashiki_Sfx,
+					'ADM_Production_Id' => $dpd->ADM_Production_Id,
+					'TAM_Production_Id' => $dpd->TAM_Production_Id,
+					'Plan_Delivery_Date' => $dpd->Plan_Delivery_Date,
+					'Plan_Jig_In_Date' => $dpd->Plan_Jig_In_Date,
+					'WOS_Release_Date' => $dpd->WOS_Release_Date,
+					'SAPWOS_DES' => $dpd->SAPWOS_DES,
+					'Location' => $dpd->Location,
+					'Color_Code' => $dpd->Color_Code,
+					'ED' => $dpd->ED,
+					'Model' => $dpd->Model,
+					"Model_Name" => $dpd->Model_Name,
+					'Order' => $dpd->Order,
+					'Dest' => $dpd->Dest,
+					"Transmisi" => $dpd->Transmisi,
+					"Color" => $dpd->Color,
+					"Bot_Color" => $dpd->Bot_Color,
+				);
+				$no--;
+				continue;
+			}
+
 			if(!empty($data_tabungan)){
 				$transmisi = $dpd->Transmisi;
 				$color = $dpd->Color;
@@ -274,7 +320,7 @@ class WOS_Dummy extends Construct {
 
 				//UPDATE USE VLT
 				$update_data = ["use_vlt" => "1"];
-				$this->model->update("tabungan_vlt_kap2","sapnik = '".$data_tabungan->sapnik."'",$update_data);
+				$this->model->update($tableTabungan,"sapnik = '".$data_tabungan->sapnik."'",$update_data);
 			}else{
 				$suffix_not_docking[] = $dpd->Katashiki_Sfx;
 			}
@@ -295,11 +341,16 @@ class WOS_Dummy extends Construct {
 		// print_r($data_input);
 		// die();
 		//CLEAR DATA
-		$this->model->delete_heijunka("master_kap2","No !=");
+		$this->model->delete_heijunka($tableMaster,"No !=");
 		//UPDATE DATA KAP2
-		$this->model->insert_batch_heijunka("master_kap2",$data_input);
+		$this->model->insert_batch_heijunka($tableMaster,$data_input);
 		$this->swal_custom_icon("Sukses", 'Docking WOS Dummy to WOS VIN KAP 2 Berhasil, Silahkan lanjut proses download PIS dan Hardcopy', base_url('assets/images/happy.png'), "","true");
 		$this->voice("sukses.mp3");
-		redirect("heijunka_wos_kap2?no_dummy=yes");
+
+		if($kap == "kap2"){
+			redirect("heijunka_wos_kap2?no_dummy=yes");
+		}else{
+			redirect("heijunka_wos?dummy=no");
+		}
 	}
 }

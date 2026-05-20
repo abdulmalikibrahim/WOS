@@ -1,6 +1,6 @@
 <?php
 	header ("Content-type: application/vnd-ms-excel");
-	header("Content-Disposition: attachment;filename = Service Part.xls");
+	header("Content-Disposition: attachment;filename = Service Part KAP $kap.xls");
 	$p = $this->input->get("p");
 	$d = $this->input->get("d");
 ?>
@@ -25,7 +25,7 @@
 				<tr>
 					<td colspan="2" style="text-align:center; font-family:stencil; background:black; color:white; font-size:20pt;  border-right:solid #fff 1px; border-left:solid 1px;"><?= date("M",strtotime($p)); ?></td>
 					<td style="text-align:center; font-family:stencil; background:black; color:white; font-size:20pt; border-right:solid 1px; border-left:solid #fff 1px;"><?= date("M",strtotime($d)); ?></td>
-					<td style="text-align:center; font-family:stencil; font-size:18pt; border:0;" colspan="5">KARAWANG ASSY PLANT</td>
+					<td style="text-align:center; font-family:stencil; font-size:18pt; border:0;" colspan="5">KARAWANG ASSY PLANT - <?= $kap; ?></td>
 					<td style="text-align:center; font-family:stencil; font-size:18pt; background:yellow; border-top:0; border-right:solid 1px;" colspan="2">WELD PART</td>
 				</tr>
 				<tr>
@@ -73,8 +73,8 @@
 			?>
 			<tbody>
 				<?php
-				$part_number = $this->model->gds_heijunka("create_wos","*,COUNT(No) as row_qty, SUM(Qty) as total","sub = '$value' GROUP BY Part_Number","result");
-				$part_number_total = $this->model->gds_heijunka("create_wos","*,SUM(Qty) as total","sub = '$value' GROUP BY sub","row");
+				$part_number = $this->model->join_data_heijunka("create_wos a","breakdown_sp b","a.Part_Number=b.Breakdown","a.*,COUNT(a.No) as row_qty, SUM(a.Qty) as total","a.sub = '$value' AND b.line = '$kap' GROUP BY Part_Number","result");
+				$part_number_total = $this->model->join_data_heijunka("create_wos a","breakdown_sp b","a.Part_Number=b.Breakdown","*,SUM(a.Qty) as total","a.sub = '$value' AND b.line = '$kap' GROUP BY a.sub","row");
 				if(!empty($part_number)){
 					$no = 1;
 					foreach ($part_number as $pn) {

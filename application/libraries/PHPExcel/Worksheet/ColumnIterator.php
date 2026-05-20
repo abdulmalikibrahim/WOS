@@ -91,7 +91,7 @@ class PHPExcel_Worksheet_ColumnIterator implements Iterator
     {
         $startColumnIndex = PHPExcel_Cell::columnIndexFromString($startColumn) - 1;
         if ($startColumnIndex > PHPExcel_Cell::columnIndexFromString($this->subject->getHighestColumn()) - 1) {
-            throw new PHPExcel_Exception("Start column ({$startColumn}) is beyond highest column ({$this->subject->getHighestColumn()})");
+            throw new PHPExcel_Exception("Start column ([$startColumn]) is beyond highest column ({$this->subject->getHighestColumn()})");
         }
 
         $this->startColumn = $startColumnIndex;

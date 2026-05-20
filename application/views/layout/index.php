@@ -8,7 +8,7 @@ if($this->params1 != ""){
     $overflow = 'scrollbar';
 }
 ?>
-<body class="bg-info" style="overflow-y:<?=$overflow?>; overflow-x:hidden; min-height:100%">
+<body style="overflow-y:<?=$overflow?>; overflow-x:hidden; min-height:100%; background-color:#3badb9;">
     <?php $this->load->view("content/".$content) ?>
 </body>
 </html>

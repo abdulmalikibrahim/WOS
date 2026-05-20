@@ -168,6 +168,17 @@ class Construct extends CI_Controller {
 			swal.fire({title:"'.$title.'",html:"'.$text.'",icon:"'.$icon.'"});
 		</script>');
 	}
+	public function fb($params)
+	{
+		// Cek dulu apakah key statusCode-nya ada
+		if (isset($params['statusCode'])) {
+			// Set HTTP status code sesuai isi params-nya (misal 500, 400, dll)
+			http_response_code($params['statusCode']);
+		}
+
+		echo json_encode($params);
+		die();
+	}
 	public function swal_custom_icon($title,$text,$img,$rounded,$btn_ok)
 	{
 		if(!empty($rounded)){

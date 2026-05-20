@@ -7,7 +7,7 @@ header("Content-Disposition: attachment;filename = Master Service Part.xls");
 <head>
     <title></title>
 </head>
-<body>
+<body style="background:#FFFFFF;">
     <table border="1" style="font-size: 10pt;">
         <tr style="font-weight: bold;" align="center">
             <td>No.</td>
@@ -18,6 +18,8 @@ header("Content-Disposition: attachment;filename = Master Service Part.xls");
             <td>Route</td>
             <td>Qty</td>
             <td>Keterangan</td>
+            <td>Model</td>
+            <td>Line</td>
         </tr>
 		<?php
 		$data_contoh = array(
@@ -26,30 +28,40 @@ header("Content-Disposition: attachment;filename = Master Service Part.xls");
 					"name" => "HOOD SUB-ASSY",
 					"route" => "PL5 (WELD)-ED-SPD",
 					"qty" => "1",
+					"model" => "D74A",
+					"line" => "1",
 					"job_num" => "-",
 				),
 				"53307-BZ040-00" => array(
 					"name" => "HOOK SUB-ASSY, HOOD LOCK",
 					"route" => "SP-PL5 (WELD)",
 					"qty" => "1",
+					"model" => "D74A",
+					"line" => "1",
 					"job_num" => "AA-0256",
 				),
 				"53311-BZ280-00" => array(
 					"name" => "PANEL, HOOD",
 					"route" => "PL5 (STAMP)-PL5 (WELD)",
 					"qty" => "1",
+					"model" => "D74A",
+					"line" => "1",
 					"job_num" => "P4051",
 				),
 				"53321-BZ270-00" => array(
 					"name" => "PANEL, HOOD, INNER",
 					"route" => "PL5 (STAMP)-PL5 (WELD)",
 					"qty" => "1",
+					"model" => "D74A",
+					"line" => "1",
 					"job_num" => "P4052",
 				),
 				"53331-BZ120-00" => array(
 					"name" => "PLATE, HOOD HINGE MOUNTING",
 					"route" => "SP-PL5 (WELD)",
 					"qty" => "2",
+					"model" => "D74A",
+					"line" => "1",
 					"job_num" => "AA-0257",
 				),
 			)
@@ -66,6 +78,8 @@ header("Content-Disposition: attachment;filename = Master Service Part.xls");
 				<td><?= $value["route"]; ?></td>
 				<td><?= $value["qty"]; ?></td>
 				<td>Hanya Contoh</td>
+				<td><?= $value["model"]; ?></td>
+				<td><?= $value["line"]; ?></td>
 			</tr>
 			<?php
 		}

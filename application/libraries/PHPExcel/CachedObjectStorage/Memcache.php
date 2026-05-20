@@ -144,7 +144,7 @@ class PHPExcel_CachedObjectStorage_Memcache extends PHPExcel_CachedObjectStorage
             if ($obj === false) {
                 //    Entry no longer exists in Memcache, so clear it from the cache array
                 parent::deleteCacheData($pCoord);
-                throw new PHPExcel_Exception("Cell entry {$pCoord} no longer exists in MemCache");
+                throw new PHPExcel_Exception("Cell entry [$pCoord] no longer exists in MemCache");
             }
         } else {
             //    Return null if requested entry doesn't exist in cache
@@ -209,11 +209,11 @@ class PHPExcel_CachedObjectStorage_Memcache extends PHPExcel_CachedObjectStorage
                 if ($obj === false) {
                     //    Entry no longer exists in Memcache, so clear it from the cache array
                     parent::deleteCacheData($cellID);
-                    throw new PHPExcel_Exception("Cell entry {$cellID} no longer exists in MemCache");
+                    throw new PHPExcel_Exception("Cell entry [$cellID] no longer exists in MemCache");
                 }
                 if (!$this->memcache->add($newCachePrefix . $cellID . '.cache', $obj, null, $this->cacheTime)) {
                     $this->__destruct();
-                    throw new PHPExcel_Exception("Failed to store cell {$cellID} in MemCache");
+                    throw new PHPExcel_Exception("Failed to store cell [$cellID] in MemCache");
                 }
             }
         }
@@ -260,7 +260,7 @@ class PHPExcel_CachedObjectStorage_Memcache extends PHPExcel_CachedObjectStorage
             //    Set a new Memcache object and connect to the Memcache server
             $this->memcache = new Memcache();
             if (!$this->memcache->addServer($memcacheServer, $memcachePort, false, 50, 5, 5, true, array($this, 'failureCallback'))) {
-                throw new PHPExcel_Exception("Could not connect to MemCache server at {$memcacheServer}:{$memcachePort}");
+                throw new PHPExcel_Exception("Could not connect to MemCache server at [$memcacheServer]:[$memcachePort]");
             }
             $this->cacheTime = $cacheTime;
 
@@ -277,7 +277,7 @@ class PHPExcel_CachedObjectStorage_Memcache extends PHPExcel_CachedObjectStorage
      */
     public function failureCallback($host, $port)
     {
-        throw new PHPExcel_Exception("memcache {$host}:{$port} failed");
+        throw new PHPExcel_Exception("memcache [$host]:[$port] failed");
     }
 
     /**

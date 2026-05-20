@@ -106,6 +106,9 @@ $route['heijunka_sub'] = 'C_Heijunka_WOS/heijunka_sub';
 $route['heijunka_model'] = 'C_Heijunka_WOS/heijunka_model';
 $route['heijunka_both'] = 'C_Heijunka_WOS/heijunka_both';
 $route['heijunka_transmisi'] = 'C_Heijunka_WOS/heijunka_transmisi';
+$route['heijunka_change_order'] = 'C_Heijunka_WOS/heijunka_change_order';
+$route['dummy_process_kap1'] = 'C_Heijunka_WOS/dummy_process_kap';
+$route['process_tabungan_dummy_kap1'] = 'Tabungan/process_tabungan_dummy_kap1';
 
 $route['heijunka_check_batch_kap2'] = 'C_Heijunka_WOS_KAP2/heijunka_check_batch';
 $route['heijunka_color_kap2'] = 'C_Heijunka_WOS_KAP2/heijunka_color';
@@ -146,6 +149,7 @@ $route['docking_wos_dummy'] = 'WOS_Dummy';
 $route['import_pis_kap2'] = 'WOS_Dummy/import_pis_kap2';
 $route['load_pis_kap2'] = 'WOS_Dummy/load_pis_kap2';
 $route['docking_dummy'] = 'WOS_Dummy/docking_dummy';
+$route['docking_dummy_kap1'] = 'WOS_Dummy/docking_dummy_kap1';
 
 $route['filtering_color/(:any)'] = 'C_Heijunka_WOS/filtering_color/$1';
 $route['filtering_suffix/(:any)'] = 'C_Heijunka_WOS/filtering_suffix/$1';
@@ -160,3 +164,18 @@ $route['downloadVIN'] = 'C_Heijunka_WOS/downloadVIN';
 
 $route['delete_unit_batam'] = 'Tabungan/delete_unit_batam';
 $route['api/checking_wos'] = 'API/checking_wos';
+
+$route['filter/(:any)'] = 'Filter/index/$1';
+$route['import_tabungan_d55l'] = 'Tabungan/import_tabungan_d55l';
+
+//BANK VLT
+$route['bank_vlt']              = 'Bank_VLT/index';
+$route['import_bank_vlt']       = 'Bank_VLT/import_bank_vlt';
+$route['load_bank_vlt']         = 'Bank_VLT/load_bank_vlt';
+$route['get_summary_bank_vlt']  = 'Bank_VLT/get_summary_bank_vlt';
+$route['edit_bank_vlt']         = 'Bank_VLT/edit_bank_vlt';
+$route['save_edit_bank_vlt']    = 'Bank_VLT/save_edit_bank_vlt';
+$route['download_bank_vlt']     = 'Bank_VLT/download_bank_vlt';
+$route['get_reason_bank_vlt']   = 'Bank_VLT/get_reason_bank_vlt';
+$route['pick_bank_vlt']         = 'Bank_VLT/pick_bank_vlt';
+$route['use_bank_vlt']          = 'Bank_VLT/use_bank_vlt';

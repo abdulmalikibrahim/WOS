@@ -266,6 +266,28 @@
                                 <div class="card-footer font-weight-bold text-white p-0" id="card-footer-both" align="center"></div>
                             </div>
                         </div>
+                        <div class="col pr-1 pl-1">
+                            <div class="card">
+                                <div class="card-header p-2 text-center">
+                                    <h6 class="m-0">D74A LINK</h6>
+                                </div>
+                                <div class="card-body p-2 text-center">
+                                    <?php
+                                    $start_no = empty($this->input->get("start_vin")) ? 1 : $this->input->get("start_vin");
+                                    ?>
+									<a href="<?= base_url("dummy_process_kap1?start_no=".$start_no) ?>" class="btn btn-info" style="font-size:8pt;" onclick="loading('Proses D74A Link...','Mohon tunggu sampai proses selesai.')">PROCESS</a>
+                                </div>
+								<?php
+								//STATUS D74A-LINK
+								$status_d74a_link = $this->model->gds_heijunka("history","Status","Heijunka = 'D74A-LINK'","row");
+								if(empty($status_d74a_link->Status)){
+									echo '<div class="card-footer font-weight-bold text-white p-0 bg-danger" id="card-footer-d74a-link" align="center">-</div>';
+								}else{
+									echo '<div class="card-footer font-weight-bold text-white p-0 bg-success" id="card-footer-d74a-link" align="center">Sukses</div>';
+								}
+								?>
+                            </div>
+                        </div>
                         <!-- <div class="col pr-1 pl-1">
                             <div class="card">
                                 <div class="card-header p-2 text-center">
@@ -436,9 +458,15 @@
                                         $bs_td = '';
                                         $tone_td = '';
                                         $choosen = '';
-                                    }else if(substr_count($data_wos->SAPNIK,"D74LINK") > 0){
+                                    }else if(substr_count($data_wos->heijunka_tone,"D74A-LINK") > 0){
                                         $bg_bot = "white";
-                                        $bot_td = '<td colspan="3" bgcolor="'.$bg_bot.'" id="bot_td_'.($No+1).'" align="center">D74A-Link</td>';
+                                        $bot_td = '<td colspan="3" bgcolor="'.$bg_bot.'" id="bot_td_'.($No+1).'" align="center">D74A-LINK</td>';
+                                        $bs_td = '';
+                                        $tone_td = '';
+                                        $choosen = '';
+                                    }else if(substr_count($data_wos->heijunka_tone,"D55L-LINK") > 0){
+                                        $bg_bot = "white";
+                                        $bot_td = '<td colspan="3" bgcolor="'.$bg_bot.'" id="bot_td_'.($No+1).'" align="center">D55L-LINK</td>';
                                         $bs_td = '';
                                         $tone_td = '';
                                         $choosen = '';
@@ -469,7 +497,13 @@
                                     if($data_wos->Model == "D55L"){
                                         $bg_model = "bg-warning text-dark";
                                     }else if($data_wos->Model == "D74A"){
-                                        if(substr_count($data_wos->SAPNIK,"D74LINK") > 0){
+                                        if(substr_count($data_wos->heijunka_tone,"D74A-LINK") > 0){
+                                            $bg_model = "bg-white";
+                                        }else{
+                                            $bg_model = "bg-danger text-light";
+                                        }
+                                    }else if($data_wos->Model == "D55L"){
+                                        if(substr_count($data_wos->heijunka_tone,"D55L-LINK") > 0){
                                             $bg_model = "bg-white";
                                         }else{
                                             $bg_model = "bg-danger text-light";
@@ -559,7 +593,7 @@
 										$text_ng = "";
 									}
 
-                                    $color_batch = ["1" => "bg-info", "2" => "bg-danger text-light"];
+                                    $color_batch = ["1" => "bg-info", "2" => "bg-danger text-light", "3" => "bg-success text-light"];
 									?>
 									<tr id="tr_<?= ($No+1); ?>" data-id="" class="<?= $bg_model; ?>" align="center" <?= $choosen; ?>>
 										<td style="height:25px;" id="td_nomor_<?= ($No+1) ?>" data-id=""><?= $No; ?></td>
@@ -615,6 +649,58 @@
                     <h5 class="modal-title" id="formdate-title">FORM PLAN JIG IN & PDD</h5>
                 </div>
                 <div class="modal-body">
+                    <form action="<?=base_url("dup")?>" method="post" id="form-download" <?php if($this->input->get("dummy") == "yes"){ echo 'target="_blank"'; } ?>>
+                        <div class="row">
+                            <div class="col-12 mb-2">
+                                <p class="mb-1">Tipe Excel</p>
+                                <select id="tipe" class="form-control">
+                                    <option>PIS</option>
+                                    <option>Hardcopy</option>
+                                </select>
+                            </div>
+                            <div class="col-12 mb-2">
+                                <p class="mb-1">Dummy</p>
+                                <select name="dummy" id="dummy" class="form-control">
+                                    <option <?php if($this->input->get("dummy") == "yes"){ echo "selected"; } ?>>YES</option>
+                                    <option <?php if($this->input->get("dummy") == "no"){ echo "selected"; } ?>>NO</option>
+                                </select>
+                            </div>
+                            <div class="col-12 mb-2">
+                                <p class="mb-1">Plan Jig In</p>
+                                <input type="date" class="form-control" value="<?=date("Y-m-d")?>" name="plan_jig_in">
+                            </div>
+                            <div class="col-12 mb-2">
+                                <p class="mb-1">PDD</p>
+                                <input type="date" class="form-control" value="<?=date("Y-m-d")?>" name="pdd">
+                            </div>
+                            <?php
+                            if($this->input->get("dummy") == "yes"){
+                                ?>
+                                <div class="col-12 mb-2">
+                                    <p class="mb-1">Start VIN</p>
+                                    <input type="number" class="form-control" value="1" name="start_vin" id="start_vin">
+                                </div>
+                                <?php
+                            }
+                            ?>
+                            <div class="col-lg-12 mt-2" align="right">
+                                <button class="btn btn-info" id="btn-save"><i class="fas fa-save pr-2"></i>Simpan</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <!-- <div class="modal fade" id="formdate" tabindex="-1" role="dialog" aria-labelledby="formdate-title" aria-hidden="true">
+        <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="formdate-title">FORM PLAN JIG IN & PDD</h5>
+                </div>
+                <div class="modal-body">
                     <form action="<?=base_url("dup")?>" method="post" id="form-download">
                         <div class="row">
                             <div class="col-12">
@@ -640,7 +726,7 @@
                 </div>
             </div>
         </div>
-    </div>
+    </div> -->
 </body>
 </html>
 <?php $this->load->view("js/heijunka_wos"); ?>

@@ -78,10 +78,15 @@ class C_Heijunka_WOS extends Construct
 
     public function heijunka_color()
     {
+		$docking = $this->input->get("docking");
         $batch = $this->model->gds_heijunka("master","batch","batch != '' GROUP BY batch ORDER BY batch ASC","result");
         foreach ($batch as $batch) {
             $b = $batch->batch;
-            $row = $this->model->gds_heijunka("master", "Model_Name", "No != '' AND batch = '$b' GROUP BY Model_Name", "result");
+			if(!empty($docking)){
+				$row = $this->model->gds_heijunka("master", "Model_Name", "No != '' AND batch = '$b' AND Model != 'D74A' GROUP BY Model_Name", "result");
+			}else{
+				$row = $this->model->gds_heijunka("master", "Model_Name", "No != '' AND batch = '$b' GROUP BY Model_Name", "result");
+			}
             foreach ($row as $row) {
                 $Model_Name = $row->Model_Name;
                 $row_suffix = $this->model->gds_heijunka("master", "Bot_Color,Katashiki_Sfx", "Model_Name = '$Model_Name' AND batch = '$b' GROUP BY Katashiki_Sfx, Bot_Color", "result");
@@ -118,6 +123,16 @@ class C_Heijunka_WOS extends Construct
             }
         }
         $Update_Histroy = $this->model->update_heijunka("history", "Heijunka = 'Color'", $data_history);
+
+		if(!empty($docking)){
+			$data_history = ["Status" => 'Sukses'];
+			$Update_Histroy = $this->model->update_heijunka("history", "Heijunka = 'Suffix'", $data_history);
+			$data_history = ["Status" => 'Sukses'];
+			$Update_Histroy = $this->model->update_heijunka("history", "Heijunka = 'Model'", $data_history);
+			$data_history = ["Status" => 'Sukses'];
+			$Update_Histroy = $this->model->update_heijunka("history", "Heijunka = 'Transmisi'", $data_history);
+		}
+
         if (!$Update_Histroy) {
             $fb = [
                 "status" => "sukses",
@@ -129,6 +144,83 @@ class C_Heijunka_WOS extends Construct
         }
         echo json_encode($fb);
         $this->urutkan_nomor();
+        die();
+    }
+
+    public function heijunka_twotone()
+    {
+        
+		$docking = $this->input->get("docking");
+        $batch = $this->model->gds_heijunka("master","batch","batch != '' GROUP BY batch ORDER BY batch ASC","result");
+        foreach ($batch as $batch) {
+            $b = $batch->batch;
+			if(!empty($docking)){
+				$model_twotone = $this->model->gds_heijunka("master","Model","tone = 'TWO TONE' AND Model != 'D74A' AND batch = '$b' GROUP BY Model","result");
+			}else{
+				$model_twotone = $this->model->gds_heijunka("master","Model","tone = 'TWO TONE' AND batch = '$b' GROUP BY Model","result");
+			}
+            if(!empty($model_twotone)){
+                $final_status = '';
+                foreach ($model_twotone as $model_twotone) {
+                    $model = $model_twotone->Model;
+                    $data_no = $this->model->gds_heijunka("master","No","Model = '$model' AND batch = '$b' ORDER BY batch,No DESC","result");
+                    foreach ($data_no as $data_no) {
+                        $d_no[] = $data_no->No;
+                    }
+                    $tone = ["SINGLE TONE","TWO TONE"];
+                    $status = '';
+                    foreach ($tone as $key => $tone) {
+                        $data_model = $this->model->gds_heijunka("master","No,SAPNIK,Color_Code","Model = '$model' AND tone = '$tone' AND batch = '$b' ORDER BY batch,No DESC","result");
+                        $count_data = count($data_model);
+                        $no = 1;
+                        foreach ($data_model as $data_model) {
+                            $heijunka_tone[] = [
+                                "SAPNIK" => $data_model->SAPNIK,
+                                "heijunka_tone" =>  round($no/$count_data,9)
+                            ];
+                            $no++;
+                        }
+                        $update = $this->model->update_batch_heijunka("master","SAPNIK",$heijunka_tone);
+                        unset($heijunka_tone);
+                        if(!$update){
+                            $status .= 'OK ';
+                        }else{
+                            $status .= 'NG ';
+                        }
+                    }
+                    if(substr_count($status,'NG') <= 0){
+                        $data_heijunka = $this->model->gds_heijunka("master","SAPNIK","Model = '$model' AND batch = '$b' ORDER BY heijunka_tone ASC","result");
+                        $new_no = 0;
+                        foreach ($data_heijunka as $data_heijunka) {
+                            $heijunka_tone[] = [
+                                "SAPNIK" => $data_heijunka->SAPNIK,
+                                "No" => $d_no[$new_no],
+                            ];
+                            $new_no++;
+                        }
+                        $update = $this->model->update_batch_heijunka("master","SAPNIK",$heijunka_tone);
+                        unset($heijunka_tone);
+                        if(!$update){
+                            $final_status .= 'OK ';
+                        }else{
+                            $final_status .= 'NG ';
+                        }
+                    }else{
+                        $final_status .= 'NG ';
+                    }
+                    unset($d_no);
+                }
+
+                if(substr_count($final_status,'NG') <= 0){
+                    $fb = ["status" => "sukses"];
+                }else{
+                    $fb = ["status" => "ng"];
+                }
+            }else{
+                $fb = ["status" => "tidak ada two tone"];
+            }
+        }
+        echo json_encode($fb);
         die();
     }
 
@@ -247,9 +339,25 @@ class C_Heijunka_WOS extends Construct
             $b = $batch->batch;
             $row = $this->model->gds_heijunka("master", "Model as Model", "No != '' AND batch = '$b' GROUP BY Model", "result");
             foreach ($row as $row) {
-                $Model = $row->Model;
-                $row_suffix = $this->model->gds_heijunka("master", "SAPNIK", "Model = '$Model' AND batch = '$b' ORDER BY batch,Heijunka_Sub_Model, Heijunka_Suffix, Heijunka_Color, heijunka_tone ASC", "result");
-                $Count_Color = $this->model->gds_heijunka("master", "COUNT(No) as Count", "Model = '$Model' AND batch = '$b'", "row");
+                // $Model = $row->Model;
+                // $row_suffix = $this->model->gds_heijunka("master", "SAPNIK", "Model = '$Model' AND batch = '$b' ORDER BY batch,Heijunka_Sub_Model, Heijunka_Suffix, Heijunka_Color, heijunka_tone ASC", "result");
+                // $Count_Color = $this->model->gds_heijunka("master", "COUNT(No) as Count", "Model = '$Model' AND batch = '$b'", "row");
+                // $No = 1;
+                // foreach ($row_suffix as $row_suffix) {
+                //     $Hitung_Heijunka = $No / $Count_Color->Count;
+                //     $Pembulatan_Hitung = round($Hitung_Heijunka, 11);
+
+                //     $data_update[] = [
+                //         "SAPNIK" => $row_suffix->SAPNIK,
+                //         "Heijunka_Model" => $Pembulatan_Hitung,
+                //     ];
+                //     $No++;
+                // }
+                // $Model_history = $row->Model;
+				
+                $Model = in_array($row->Model, ["D74A", "D55L"]) ? "'D74A','D55L'" : "'".$row->Model."'";
+                $row_suffix = $this->model->gds_heijunka("master", "SAPNIK", "Model IN(".$Model.") AND batch = '$b' ORDER BY batch,Heijunka_Sub_Model, Heijunka_Suffix, Heijunka_Color, heijunka_tone ASC", "result");
+                $Count_Color = $this->model->gds_heijunka("master", "COUNT(No) as Count", "Model IN(".$Model.") AND batch = '$b'", "row");
                 $No = 1;
                 foreach ($row_suffix as $row_suffix) {
                     $Hitung_Heijunka = $No / $Count_Color->Count;
@@ -407,10 +515,11 @@ class C_Heijunka_WOS extends Construct
     }
     public function heijunka_both()
     {
+		$docking = $this->input->get("docking");
         $batch = $this->model->gds_heijunka("master","batch","batch != '' GROUP BY batch ORDER BY batch ASC","result");
         foreach ($batch as $batch) {
             $b = $batch->batch;
-            $data_wos = $this->model->gds_heijunka("master","*","No != '' AND batch = '$b' ORDER BY batch,No DESC","result");
+			$data_wos = $this->model->gds_heijunka("master","*","No != '' AND batch = '$b' ORDER BY batch,No DESC","result");
             $no_bot_det = 0;
             $No = 1;
             $data_ng_bot_det = [];
@@ -488,62 +597,58 @@ class C_Heijunka_WOS extends Construct
                 $ng_number = "";
                 $status_update = "";
                 unset($data_ng_max);
-                foreach ($data_ng_bot_det as $k_ng => $v_ng) {
-                    $model = $k_ng;
-                    foreach ($v_ng as $kk_ng => $vv_ng) {
-                        $tone = $kk_ng;
-                        foreach ($vv_ng as $kkk_ng => $vvv_ng) {
-                            $ng_number .= ($vvv_ng["No_Convert"]*1)." dengan SAPNIK `".$vvv_ng["SAPNIK"]."`";
-                            $data_ng_max[$model][$tone][] = [
-                                "No" => $vvv_ng["No"],
-                                "SAPNIK" => $vvv_ng["SAPNIK"],
-                            ];
-                            $bot = $vvv_ng["Bot_det"];
-                            if($bot == "A"){
-                                $brd = "ABB";
-                            }else if($bot == "B"){
-                                $brd = "ABA";
-                            }
-                            if(!empty($data_bot_all[$model][$tone]["OK"][$brd])){
-                                $jumlah_ok = count($data_bot_all[$model][$tone]["OK"][$brd]);
-                                if($jumlah_ok > 0){
-                                    $id_bot_ok = rand(0,$jumlah_ok);
-                                    if(!empty($data_bot_all[$model][$tone]["OK"][$brd][$id_bot_ok]["No"])){
-                                        $data_ng_to_ok[] = [
-                                            "no" => $data_bot_all[$model][$tone]["OK"][$brd][$id_bot_ok]["No"],
-                                            "SAPNIK" => $vvv_ng["SAPNIK"],
-                                        ];
-                                        $data_ok_to_ng[] = [
-                                            "no" => $vvv_ng["No"],
-                                            "SAPNIK" => $data_bot_all[$model][$tone]["OK"][$brd][$id_bot_ok]["SAPNIK"],
-                                        ];
+				foreach ($data_ng_bot_det as $k_ng => $v_ng) {
+					$model = $k_ng;
 
-                                        unset($data_bot_all[$model][$tone]["OK"][$brd][$id_bot_ok]);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+					// 🟡 kalau docking aktif dan model D74A, lewatin aja
+					if (!empty($docking) && $model == "D74A") {
+						continue;
+					}
+
+					foreach ($v_ng as $kk_ng => $vv_ng) {
+						$tone = $kk_ng;
+						foreach ($vv_ng as $kkk_ng => $vvv_ng) {
+							$ng_number .= ($vvv_ng["No_Convert"]*1)." dengan SAPNIK `".$vvv_ng["SAPNIK"]."`";
+							$data_ng_max[$model][$tone][] = [
+								"No" => $vvv_ng["No"],
+								"SAPNIK" => $vvv_ng["SAPNIK"],
+							];
+							$bot = $vvv_ng["Bot_det"];
+							if($bot == "A"){
+								$brd = "ABB";
+							}else if($bot == "B"){
+								$brd = "ABA";
+							}
+
+							if(!empty($data_bot_all[$model][$tone]["OK"][$brd])){
+								$jumlah_ok = count($data_bot_all[$model][$tone]["OK"][$brd]);
+								if($jumlah_ok > 0){
+									$id_bot_ok = rand(0,$jumlah_ok);
+									if(!empty($data_bot_all[$model][$tone]["OK"][$brd][$id_bot_ok]["No"])){
+										$data_ng_to_ok[] = [
+											"no" => $data_bot_all[$model][$tone]["OK"][$brd][$id_bot_ok]["No"],
+											"SAPNIK" => $vvv_ng["SAPNIK"],
+										];
+										$data_ok_to_ng[] = [
+											"no" => $vvv_ng["No"],
+											"SAPNIK" => $data_bot_all[$model][$tone]["OK"][$brd][$id_bot_ok]["SAPNIK"],
+										];
+
+										unset($data_bot_all[$model][$tone]["OK"][$brd][$id_bot_ok]);
+									}
+								}
+							}
+						}
+					}
+				}
+
                 if(!empty($data_ng_to_ok)){
                     if(!empty($data_ok_to_ng)){
                         $data_update = array_merge($data_ng_to_ok,$data_ok_to_ng);
                     }
                 }
-                // echo "DATA NG TO OK <br><br>";
-                // print_r($data_ng_to_ok);
-                // echo "<br><br>DATA OK TO NG <br><br>";
-                // print_r($data_ok_to_ng);
-                // echo "<br><br> ===== <br><br>";
-                // print_r($data_update);
-                // die();
+				
                 if(!empty($data_update)){
-                    // foreach ($data_update as $key => $value) {
-                        // $get_batch_no = $this->model->gds_heijunka("master","batch,SAPNIK","No = '".$value["no"]."'","row");
-                        // $get_batch_no_2 = $this->model->gds_heijunka("master","batch,SAPNIK","SAPNIK = '".$value["SAPNIK"]."'","row");
-                        // echo "[".$get_batch_no->batch."] <=> [".$get_batch_no_2->batch."]<br>";
-                        // $this->model->update_heijunka("master", "SAPNIK = '$sapnik' AND batch = '$b'", $data);
-                    // }
                     $update = $this->model->update_batch_heijunka("master","SAPNIK",$data_update);
                     $fb = [
                         "status" => "sukses",
@@ -583,27 +688,44 @@ class C_Heijunka_WOS extends Construct
                     $qty_master = $this->model->gds_heijunka("master","COUNT(*) as total","Lot_Code = '$suffix' AND batch = '$batch'","row");
                     $actual = $qty_master->total;
                     if($plan != $actual){
-                        //AMBIL PLAN SEMUA BATCH
-                        $actual_batch1 = $this->model->gds_heijunka("master","COUNT(*) as total","Lot_Code = '$suffix' AND batch = '1'","row");
-                        $plan_batch1 = $this->model->gds("plan_wos","plan","suffix = '$suffix' AND batch = '1'","row");
-                        //CARI ACTUAL LEBIH BESAR DARI PLAN BATCH 1
-                        if($actual_batch1->total > $plan_batch1->plan){
-                            //BERAPA KELEBIHAN ACTUAL YANG BISA DI BERIKAN KE BATCH 2 NANTI NYA
-                            $selisih = $actual_batch1->total - $plan_batch1->plan;
-                            //AMBIL UNIT DARI BAWAH SESUAI DENGAN SELISIH UNTUK DI MASUKKAN KE BATCH 2
-                            $update_batch = ["batch" => "2"];
-                            $this->model->update_heijunka("master","sapnik IN (SELECT sapnik FROM (SELECT sapnik FROM master WHERE Lot_Code = '$suffix' AND batch = '1' ORDER BY Plan_Delivery_Date DESC LIMIT $selisih) AS sub)",$update_batch);
-                        }
+                        // 1. AMBIL DATANYA
+						$actual_batch1 = $this->model->gds_heijunka("master","COUNT(*) as total","Lot_Code = '$suffix' AND batch = '1'","row");
+						$plan_batch1 = $this->model->gds("plan_wos","plan","suffix = '$suffix' AND batch = '1'","row");
+
+						// 2. DEFINE NILAINYA (Pake Ternary Operator biar ringkes)
+						// Bacanya: Kalau $actual_batch1 ada isinya, ambil ->total. Kalau gak ada, kasih 0.
+						$val_actual = isset($actual_batch1->total) ? $actual_batch1->total : 0;
+
+						// Bacanya: Kalau $plan_batch1 ada isinya, ambil ->plan. Kalau gak ada, kasih 0.
+						$val_plan = isset($plan_batch1->plan) ? $plan_batch1->plan : 0;
+
+
+						// 3. BARU DEH DIBANDINGIN (Aman Sentosa)
+						if($val_actual > $val_plan){
+							
+							// BERAPA KELEBIHAN ACTUAL YANG BISA DI BERIKAN KE BATCH 2 NANTI NYA
+							$selisih = $val_actual - $val_plan;
+
+							// AMBIL UNIT DARI BAWAH SESUAI DENGAN SELISIH UNTUK DI MASUKKAN KE BATCH 2
+							$update_batch = ["batch" => "2"];
+							
+							// Query update lo tetep sama, cuma pastiin $selisih valid
+							if($selisih > 0) {
+								$this->model->update_heijunka("master","sapnik IN (SELECT sapnik FROM (SELECT sapnik FROM master WHERE Lot_Code = '$suffix' AND batch = '1' ORDER BY Plan_Delivery_Date DESC LIMIT $selisih) AS sub)",$update_batch);
+							}
+						}
                         
                         //CHECK ACTUAL LEBIH BESAR DARI PLAN BATCH 2
                         $plan_batch2 = $this->model->gds("plan_wos","plan","suffix = '$suffix' AND batch = '2'","row");
                         $actual_batch2 = $this->model->gds_heijunka("master","COUNT(*) as total","Lot_Code = '$suffix' AND batch = '2'","row");
-                        if($actual_batch2->total > $plan_batch2->plan){
-                            //BERAPA KELEBIHAN ACTUAL YANG BISA DI BERIKAN KE BATCH 1 NANTI NYA
-                            $selisih = $actual_batch2->total - $plan_batch2->plan;
-                            //AMBIL UNIT DARI BAWAH SESUAI DENGAN SELISIH UNTUK DI MASUKKAN KE BATCH 1
-                            $update_batch = ["batch" => "1"];
-                            $this->model->update_heijunka("master","sapnik IN (SELECT sapnik FROM (SELECT sapnik FROM master WHERE Lot_Code = '$suffix' AND batch = '2' ORDER BY Plan_Delivery_Date ASC LIMIT $selisih) AS sub)",$update_batch);
+                        if(!empty($actual_batch2->total) && !empty($plan_batch2->plan)){
+							if($actual_batch2->total > $plan_batch2->plan){
+								//BERAPA KELEBIHAN ACTUAL YANG BISA DI BERIKAN KE BATCH 1 NANTI NYA
+								$selisih = $actual_batch2->total - $plan_batch2->plan;
+								//AMBIL UNIT DARI BAWAH SESUAI DENGAN SELISIH UNTUK DI MASUKKAN KE BATCH 1
+								$update_batch = ["batch" => "1"];
+								$this->model->update_heijunka("master","sapnik IN (SELECT sapnik FROM (SELECT sapnik FROM master WHERE Lot_Code = '$suffix' AND batch = '2' ORDER BY Plan_Delivery_Date ASC LIMIT $selisih) AS sub)",$update_batch);
+							}
                         }
                     }
                 }
@@ -1164,84 +1286,6 @@ class C_Heijunka_WOS extends Construct
 		$this->load->view("content/view/print_card");
 	}
 
-    public function heijunka_twotone()
-    {
-        
-        $batch = $this->model->gds_heijunka("master","batch","batch != '' GROUP BY batch ORDER BY batch ASC","result");
-        foreach ($batch as $batch) {
-            $b = $batch->batch;
-            $model_twotone = $this->model->gds_heijunka("master","Model","tone = 'TWO TONE' AND batch = '$b' GROUP BY Model","result");
-            if(!empty($model_twotone)){
-                $final_status = '';
-                foreach ($model_twotone as $model_twotone) {
-                    $model = $model_twotone->Model;
-                    $data_no = $this->model->gds_heijunka("master","No","Model = '$model' AND batch = '$b' ORDER BY batch,No DESC","result");
-                    foreach ($data_no as $data_no) {
-                        $d_no[] = $data_no->No;
-                    }
-                    $tone = ["SINGLE TONE","TWO TONE"];
-                    $status = '';
-                    foreach ($tone as $key => $tone) {
-                        $data_model = $this->model->gds_heijunka("master","No,SAPNIK,Color_Code","Model = '$model' AND tone = '$tone' AND batch = '$b' ORDER BY batch,No DESC","result");
-                        $count_data = count($data_model);
-                        $no = 1;
-                        foreach ($data_model as $data_model) {
-                            $heijunka_tone[] = [
-                                "SAPNIK" => $data_model->SAPNIK,
-                                "heijunka_tone" =>  round($no/$count_data,9)
-                            ];
-                            $no++;
-                        }
-                        $update = $this->model->update_batch_heijunka("master","SAPNIK",$heijunka_tone);
-                        unset($heijunka_tone);
-                        if(!$update){
-                            $status .= 'OK ';
-                        }else{
-                            $status .= 'NG ';
-                        }
-                    }
-                    if(substr_count($status,'NG') <= 0){
-                        $data_heijunka = $this->model->gds_heijunka("master","SAPNIK","Model = '$model' AND batch = '$b' ORDER BY heijunka_tone ASC","result");
-                        $new_no = 0;
-                        foreach ($data_heijunka as $data_heijunka) {
-                            $heijunka_tone[] = [
-                                "SAPNIK" => $data_heijunka->SAPNIK,
-                                "No" => $d_no[$new_no],
-                            ];
-                            $new_no++;
-                        }
-                        $update = $this->model->update_batch_heijunka("master","SAPNIK",$heijunka_tone);
-                        unset($heijunka_tone);
-                        if(!$update){
-                            $final_status .= 'OK ';
-                        }else{
-                            $final_status .= 'NG ';
-                        }
-                    }else{
-                        $final_status .= 'NG ';
-                    }
-                    unset($d_no);
-                }
-
-                if(substr_count($final_status,'NG') <= 0){
-                    $fb = [
-                        "status" => "sukses",
-                    ];
-                }else{
-                    $fb = [
-                        "status" => "ng",
-                    ];
-                }
-            }else{
-                $fb = [
-                    "status" => "tidak ada two tone",
-                ];
-            }
-        }
-        echo json_encode($fb);
-        die();
-    }
-
 	public function save_edit_master_sp($p)
 	{
 		$breakdown = $this->input->post("breakdown");
@@ -1272,15 +1316,17 @@ class C_Heijunka_WOS extends Construct
 					$qty = $worksheet->getCellByColumnAndRow(6, $row)->getValue();
 					$keterangan = $worksheet->getCellByColumnAndRow(7, $row)->getValue();
 					$model = $worksheet->getCellByColumnAndRow(8, $row)->getValue();
+					$line = $worksheet->getCellByColumnAndRow(9, $row)->getValue();
 					$temp_data[] = array(
 						'Part_Number' => $part_number,
 						'Breakdown' => $breakdown,
 						'Part_Name' => $part_name,
-						'Route' => $route,
+						'Route' => empty($route) ? "-" : $route,
 						'Keterangan' => $keterangan,
 						'Qty' => $qty,
 						'Original_Part' => $original_part,
 						'Model' => $model,
+						'line' => $line
 					);
                 }
             }
@@ -1366,11 +1412,12 @@ class C_Heijunka_WOS extends Construct
     {
 		$clear_data = $this->model->delete_heijunka("create_wos", "No !=");
 		if (isset($_FILES["upload-file"]["name"])) {
+            $temp_data = [];
             $path = $_FILES["upload-file"]["tmp_name"];
             $object = PHPExcel_IOFactory::load($path);
             foreach ($object->getWorksheetIterator() as $worksheet) {
                 $highestRow = ($worksheet->getHighestRow()-1);
-                for ($row = 5; $row <= $highestRow; $row++) {
+                for ($row = 5; $row <= $highestRow+1; $row++) {
 					$sub = $worksheet->getCellByColumnAndRow(3, $row)->getValue();
 					$ed = $worksheet->getCellByColumnAndRow(5, $row)->getValue();
 					$customer = $worksheet->getCellByColumnAndRow(6, $row)->getValue();
@@ -1381,44 +1428,51 @@ class C_Heijunka_WOS extends Construct
 					$po_ed = $worksheet->getCellByColumnAndRow(18, $row)->getValue();
 					$po_tam = $worksheet->getCellByColumnAndRow(19, $row)->getValue();
 					$reference = $worksheet->getCellByColumnAndRow(20, $row)->getValue();
-					$temp_data[] = array(
-						'sub' => $sub,
-						'ed' => $ed,
-						'customer' => $customer,
-						'Part_Number' => $part_no,
-						'type' => $type,
-						'Qty' => $qty,
-						'po_sto' => $po_sto,
-						'po_ed' => $po_ed,
-						'po_tam' => $po_tam,
-						'reference' => $reference,
-					);
+					if($qty > 0){
+                        $temp_data[] = array(
+                            'sub' => $sub,
+                            'ed' => $ed,
+                            'customer' => $customer,
+                            'Part_Number' => $part_no,
+                            'type' => $type,
+                            'Qty' => $qty,
+                            'po_sto' => $po_sto,
+                            'po_ed' => $po_ed,
+                            'po_tam' => $po_tam,
+                            'reference' => $reference,
+                        );
+					}
                 }
             }
-            $upload_wos = $this->model->insert_batch_heijunka("create_wos", $temp_data);
-            if($upload_wos){
-				$this->voice("sukses.mp3");
-				$width = "'100%'";
-				$this->session->set_flashdata("swal",'
-				<script>
-					swal.fire({
-						iconHtml: "<img src='.base_url('assets/images/happy.png').' width='.$width.'>",
-						customClass: {
-							icon: "border-0"
-						},
-						title:"Sukses",
-						html:"Service Part berhasil di upload",
-						showConfirmButton:true,
-						confirmButtonText:"Check Pokayoke",
-					}).then((result) => {
-						if(result.isConfirmed){
-							location.reload();
-						}
-					});
-				</script>');
+            if(!empty($temp_data)){
+                $upload_wos = $this->model->insert_batch_heijunka("create_wos", $temp_data);
+                if($upload_wos){
+                    $this->voice("sukses.mp3");
+                    $width = "'100%'";
+                    $this->session->set_flashdata("swal",'
+                    <script>
+                        swal.fire({
+                            iconHtml: "<img src='.base_url('assets/images/happy.png').' width='.$width.'>",
+                            customClass: {
+                                icon: "border-0"
+                            },
+                            title:"Sukses",
+                            html:"Service Part berhasil di upload",
+                            showConfirmButton:true,
+                            confirmButtonText:"Check Pokayoke",
+                        }).then((result) => {
+                            if(result.isConfirmed){
+                                location.reload();
+                            }
+                        });
+                    </script>');
+                }else{
+                    $this->voice("gagal.mp3");
+                    $this->swal_custom_icon("Gagal", 'Service Part gagal di upload, mohon upload ulang file', base_url('assets/images/emot-sedih.jpg'), "rounded-circle","false");
+                }
             }else{
                 $this->voice("gagal.mp3");
-                $this->swal_custom_icon("Gagal", 'Service Part gagal di upload, mohon upload ulang file', base_url('assets/images/emot-sedih.jpg'), "rounded-circle","false");
+                $this->swal_custom_icon("Gagal", 'File upload kosong atau format tidak sesuai', base_url('assets/images/emot-sedih.jpg'), "rounded-circle","false");
             }
         }else{
             $this->voice("gagal.mp3");
@@ -1778,4 +1832,176 @@ class C_Heijunka_WOS extends Construct
         exit;
     }
 
+	function dummy_process_kap()
+	{
+        $start_no = empty($this->input->get("start_no")) ? 1 : $this->input->get("start_no");
+        $pdd = $this->session->userdata("pdd_pis_kap1");
+        if(empty($pdd)){
+            $this->swal_custom_icon("Gagal", 'Sepertinya anda belum download PIS atau HardCopy, Silahkan download terlebih dahulu.', base_url('assets/images/emot-sedih.jpg'), "rounded-circle","false");
+            redirect("heijunka_wos");
+        }
+		header('Content-Type: application/json');
+		//DELETE D74A LINK
+		$this->model->delete_heijunka("master","SAPNIK LIKE '%D74LINK%'");
+		$this->model->delete_heijunka("history","Heijunka = 'D74A-LINK'");
+
+        $new_data_wos = [];
+        $check_batch = $this->model->gds_heijunka("master","batch","SAPNIK != '' GROUP BY batch ORDER BY batch ASC","result");
+        $no_loop = $start_no;
+        foreach ($check_batch as $check_batch) {
+            $batch = $check_batch->batch;
+            $total_d74a_link = $this->model->gds_heijunka("master","COUNT(SAPNIK) as total","Model = 'D74A' AND batch = '$batch'","row");
+            $total_master_kap2 = $this->model->gds_heijunka("master_kap2","COUNT(SAPNIK) as total","SAPNIK !='' AND batch = '$batch'","row");
+            // //POS
+            // if(empty($total_master_kap2->total)){
+            //     $this->swal_custom_icon("Gagal", 'WOS KAP 1 belum ada, silahkan buat WOS KAP 1 terlebih dahulu.', base_url('assets/images/emot-sedih.jpg'), "rounded-circle","false");
+            //     redirect("heijunka_wos");
+            // }
+
+            $insert_d74a_link = [];
+            $data_wos = [];
+            $master = $this->model->gds_heijunka("master","*","Model = 'D74A' AND batch = '$batch' ORDER BY No DESC","result");
+            $count_wos = count($master);
+            //CHANGE VIN & MODEL TO DUMMY
+            if(!empty($master)){
+                foreach ($master as $master) {
+                    $pid = "3Z".date("md",strtotime($pdd)).sprintf("%04d",$no_loop);
+                    $model = $master->Model;
+                    $new_vin = "D74LINK".$pid;
+                    $insert_d74a_link[] = [
+                        "WOS_Material" => $master->WOS_Material,
+                        "WOS_Material_Description" => $master->WOS_Material_Description,
+                        "SAPNIK" => $new_vin,
+                        "SAP_Material" => $master->SAP_Material,
+                        "Engine_Model" => $master->Engine_Model,
+                        "Engine_Prefix" => $master->Engine_Prefix,
+                        "Engine_Number" => $master->Engine_Number,
+                        "Plant" => $master->Plant,
+                        "Chassis_Number" => " ".$new_vin." ",
+                        "Lot_Code" => $master->Lot_Code,
+                        "Lot_Number" => $master->Lot_Number,
+                        "Katashiki" => $master->Katashiki,
+                        "Katashiki_Sfx" => $master->Katashiki_Sfx,
+                        "ADM_Production_Id" => $pid,
+                        "TAM_Production_Id" => $master->TAM_Production_Id,
+                        "Plan_Delivery_Date" => date("d-M-Y", strtotime($master->Plan_Delivery_Date)),
+                        "Plan_Jig_In_Date" => date("d-M-Y", strtotime($master->Plan_Jig_In_Date)),
+                        "WOS_Release_Date" => $master->WOS_Release_Date,
+                        "SAPWOS_DES" => $master->SAPWOS_DES,
+                        "Location" => 'No',
+                        "Color_Code" => $master->Color_Code,
+                        "tone" => $master->tone,
+                        "Model" => "X10X",
+                        "Model_Name" => $master->Model_Name,
+                        "ED" => $master->ED,
+                        "Order" => $master->Order,
+                        "Dest" => $master->Dest,
+                        "Transmisi" => $master->Transmisi,
+                        "Color" => $master->Color,
+                        "Bot_Color" => $master->Bot_Color,
+                        "Family_Model" => $master->Family_Model,
+                        "model_both" => $master->model_both,
+                        "heijunka_tone" => "D74A-LINK",
+                        "sapnik_ori" => $master->SAPNIK,
+                        "batch" => $batch,
+                    ];
+                    $no_loop++;
+                }
+				$data_wos = array_merge($data_wos, $insert_d74a_link); // Gabungkan hasil
+				$data_wos = array_reverse($data_wos);
+                $no = 1;
+                $pos = number_format($total_master_kap2->total / $total_d74a_link->total,2,".",",");
+                foreach ($data_wos as $key => $value) {
+                    $new_no = $pos*$no;
+                    $data_wos[$no-1]["No"] = $new_no;
+                    $no++;
+                }
+                $new_data_wos[$batch] = $data_wos;
+            }
+        }
+        if(!empty($data_wos)){
+            //INSERT DATA
+            foreach ($new_data_wos as $key => $value) {
+                $this->model->insert_batch_heijunka("master_kap2",$value);
+            }
+            $update_history = [
+                "Heijunka" => "D74A-LINK",
+                "Status" => "Sukses",
+            ];
+            $this->model->insert_heijunka("history",$update_history);
+        }else{
+            $this->swal_custom_icon("Gagal", 'Sistem tidak mendapatkan data KAP 2, mohon coba kembali.', base_url('assets/images/emot-sedih.jpg'), "rounded-circle","false");
+            redirect("heijunka_wos");
+        }
+		$this->swal_custom_icon("Sukses", "Proses update D74A LINK berhasil", base_url('assets/images/happy.png'), "","true");
+		redirect("heijunka_wos_kap2?no_dummy=no");
+	}
+
+	function heijunka_change_order()
+	{
+		$getMaster = $this->model->gds_heijunka("master","SAPNIK as sapnik, Lot_Code as suffix,fixed_dum","SAPNIK != '' ORDER BY Plan_Delivery_Date ASC","result_array");
+		$getPIS = $this->model->gds("pis_kap1","SAPNIK as sapnik, Lot_Code as suffix, No","SAPNIK != '' ORDER BY Plan_Delivery_Date ASC","result_array");
+
+		$pisBySuffix = [];
+		foreach ($getPIS as $pis) {
+			$suffix = $pis["suffix"];
+			// bisa simpan banyak nilai "No" per suffix
+			$pisBySuffix[$suffix][] = $pis["No"];
+		}
+
+		$result = [];
+		foreach ($getMaster as $master) {
+			$suffix = $master["suffix"];
+			$fixed_dum = $master["fixed_dum"];
+			if($fixed_dum <= 0){
+				$no = null;
+	
+				// cek apakah suffix ini punya data No
+				if (!empty($pisBySuffix[$suffix])) {
+					// ambil elemen pertama
+					$no = array_shift($pisBySuffix[$suffix]);
+	
+					// kalau udah kosong, hapus key-nya biar rapi
+					if (empty($pisBySuffix[$suffix])) {
+						unset($pisBySuffix[$suffix]);
+					}
+				}
+	
+				$result[] = [
+					"SAPNIK" => $master["sapnik"],
+					"Lot_Code" => $suffix,
+					"No" => (float)$no,
+					"Heijunka_Suffix" => (float)$no,
+					"Heijunka_Sub_Model" => (float)$no,
+					"Heijunka_Model" => (float)$no,
+					"heijunka_family" => (float)$no,
+				];
+			}
+		}
+		if(!empty($result)){
+			$this->db_heijunka = $this->load->database('db_heijunka_wos', TRUE);
+			$this->db_heijunka->update_batch('master', $result, 'SAPNIK');
+	
+			//REVERSE DATA MASTER
+			$getDataMaster = $this->model->gds_heijunka("master","No,SAPNIK","SAPNIK != '' ORDER BY No DESC","result_array");
+			$nomor = 1;
+			$resultReverse = [];
+			foreach ($getDataMaster as $getDataMaster) {
+				$resultReverse[] = [
+					"SAPNIK" => $getDataMaster["SAPNIK"],
+					"No" => $nomor,
+					"Heijunka_Suffix" => $nomor,
+					"Heijunka_Sub_Model" => $nomor,
+					"Heijunka_Model" => $nomor,
+					"heijunka_family" => $nomor,
+					"fixed_dum" => 1,
+				];
+				$nomor++;
+			}
+			$this->db_heijunka->update_batch('master', $resultReverse, 'SAPNIK');
+		}
+		$fb = ["status" => "sukses"];
+        echo json_encode($fb);
+		die();
+	}
 }

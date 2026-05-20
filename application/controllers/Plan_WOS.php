@@ -15,9 +15,14 @@ class Plan_WOS extends Construct {
 		//CHECK SUFFIX NOT INCLUDE
 		$takeout_suffix = $this->model->gds("filtering_suffix","nilai","plant = '$plant'","result_array");
 		$info_takeout_suffix = [];
-		$check_pokayoke_multiples5 = $this->model->gds("setting_pokayoke","status","name = 'D74A Multiples of 5'","row");
+		$pokayoke_d7a_multiples5 = $this->model->gds("setting_pokayoke","status","name = 'D74A Multiples of 5'","row");
+		$pokayoke_d55l_multiples5 = $this->model->gds("setting_pokayoke","status","name = 'D55L Multiples of 5'","row");
 		$d74a_count_b1 = 0;
 		$d74a_count_b2 = 0;
+
+		$d55l_count_b1 = 0;
+		$d55l_count_b2 = 0;
+		$temp_data = [];
 		if (isset($_FILES["upload-file"]["name"])) {
 			$path = $_FILES["upload-file"]["tmp_name"];
 			$object = PHPExcel_IOFactory::load($path);
@@ -36,13 +41,25 @@ class Plan_WOS extends Construct {
 					$plan = $worksheet->getCellByColumnAndRow(5, $row)->getValue();
 					if($plan > 0){
 						$plan = $plan;
-						if($model_code == "D74A" && $plant == "KAP2"){
-							if($batch == "1"){
-								$d74a_count_b1 += $plan;
+						if($plant == "KAP2"){
+							if($model_code == "D74A"){
+								if($batch == "1"){
+									$d74a_count_b1 += $plan;
+								}
+								
+								if($batch == "2"){
+									$d74a_count_b2 += $plan;
+								}
 							}
 							
-							if($batch == "2"){
-								$d74a_count_b2 += $plan;
+							if($model_code == "D55L"){
+								if($batch == "1"){
+									$d55l_count_b1 += $plan;
+								}
+								
+								if($batch == "2"){
+									$d55l_count_b2 += $plan;
+								}
 							}
 						}
 					}else{
@@ -63,21 +80,28 @@ class Plan_WOS extends Construct {
 							);
 						}
 					}else{
-						$info_takeout_suffix[$suffix] = $suffix;
+						if($plan > 0){
+							$info_takeout_suffix[$suffix] = $suffix;
+						}
 					}
 				}
 				$batch++;
 			}
 
-			if($check_pokayoke_multiples5->status > 0 && $plant == "KAP2"){
-				foreach (['Batch 1' => $d74a_count_b1, 'Batch 2' => $d74a_count_b2] as $label => $count) {
+			if(($pokayoke_d7a_multiples5->status > 0 || $pokayoke_d55l_multiples5->status > 0) && $plant == "KAP2"){
+				$pokayoke_ng = "";
+				foreach (['Batch 1 D74A' => $d74a_count_b1, 'Batch 2 D74A' => $d74a_count_b2, 'Batch 1 D55L' => $d55l_count_b1, 'Batch 2 D55L' => $d55l_count_b2] as $label => $count) {
 					if($count > 0){
 						if ($count % 5 !== 0) {
-							$this->voice("gagal.mp3");
-							$this->swal_custom_icon("Gagal", "Untuk D74A Link $label bukan kelipatan 5", base_url('assets/images/emot-sedih.jpg'), "rounded-circle", "true");
-							redirect("plan_wos");
+							$pokayoke_ng .= "$label bukan kelipatan 5, Total = $count data<br>";
 						}
 					}
+				}
+
+				if(!empty($pokayoke_ng)){
+					$this->voice("gagal.mp3");
+					$this->swal_custom_icon("Gagal", $pokayoke_ng, base_url('assets/images/emot-sedih.jpg'), "rounded-circle", "true");
+					redirect("plan_wos");
 				}
 			}
 
@@ -86,21 +110,30 @@ class Plan_WOS extends Construct {
 				$clear_plan_wos = $this->model->delete("plan_wos","suffix !=");
 				$clear_docking = $this->model->delete("t_docking","sapnik !=");
 				$clear_twotone_setting = $this->model->delete("twotone_setting","suffix_pdd !=");
-				$insert = $this->model->insert_batch("plan_wos",$temp_data);
+				if(!empty($temp_data)){
+					$insert = $this->model->insert_batch("plan_wos",$temp_data);
+				} else {
+					$insert = false;
+				}
 			}else{
 				//KAP 2
 				$clear_plan_wos = $this->model->delete("plan_wos_kap2","suffix !=");
 				$clear_docking = $this->model->delete("t_docking_kap2","sapnik !=");
 				$clear_twotone_setting = $this->model->delete("twotone_setting_kap2","suffix_pdd !=");
-				$insert = $this->model->insert_batch("plan_wos_kap2",$temp_data);
+				if(!empty($temp_data)){
+					$insert = $this->model->insert_batch("plan_wos_kap2",$temp_data);
+				} else {
+					$insert = false;
+				}
 			}
 			if($insert){
 				$this->voice("sukses.mp3");
+				$url_tabungan_dummy = $plant == "KAP1" ? base_url("process_tabungan_dummy_kap1") : base_url("process_tabungan_dummy_kap2");
 				if(empty($info_takeout_suffix)){
-					$this->swal_custom_icon("Sukses","OK, Lanjutkan untuk upload tabungan, dan klik tetap disini untuk upload Plan WOS yang lain<br><a href='".base_url("tabungan")."' class='btn btn-sm btn-info mt-4'>Tabungan VLT</a><a href='".base_url("process_tabungan_dummy_kap2")."' class='btn btn-sm btn-info mt-4 ml-3'>Proses Tabungan Dummy</a><a href='javascript:void(0)' onclick='swal_close()' class='btn btn-sm btn-secondary mt-4 ml-3'>Tetap Disini</a>",base_url('assets/images/happy.png'),"","false");
+					$this->swal_custom_icon("Sukses","OK, Lanjutkan untuk upload tabungan, dan klik tetap disini untuk upload Plan WOS yang lain<br><a href='".base_url("tabungan")."' class='btn btn-sm btn-info mt-4'>Tabungan VLT</a><a href='".base_url("tabungan?plant=$plant&dummy=yes")."' class='btn btn-sm btn-info mt-4 ml-3'>Proses Tabungan Dummy</a><a href='javascript:void(0)' onclick='swal_close()' class='btn btn-sm btn-secondary mt-4 ml-3'>Tetap Disini</a>",base_url('assets/images/happy.png'),"","false");
 				}else{
 					$suffix_takeout = implode(",",$info_takeout_suffix); 
-					$this->swal_custom_icon("Warning","Plan WOS berhasil upload.<br>Sistem takeout Suffix : ".$suffix_takeout."<br><a href='".base_url("tabungan")."' class='btn btn-sm btn-info mt-4'>Tabungan VLT</a><a href='".base_url("process_tabungan_dummy_kap2")."' class='btn btn-sm btn-info mt-4 ml-3'>Proses Tabungan Dummy</a><a href='javascript:void(0)' onclick='swal_close()' class='btn btn-sm btn-secondary mt-4 ml-3'>Tetap Disini</a>",base_url('assets/images/emot-sedih.jpg'),"","false");
+					$this->swal_custom_icon("Warning","Plan WOS berhasil upload.<br>Sistem takeout Suffix : ".$suffix_takeout."<br><a href='".base_url("tabungan")."' class='btn btn-sm btn-info mt-4'>Tabungan VLT</a><a href='".base_url("tabungan?plant=$plant&dummy=yes")."' class='btn btn-sm btn-info mt-4 ml-3'>Proses Tabungan Dummy</a><a href='javascript:void(0)' onclick='swal_close()' class='btn btn-sm btn-secondary mt-4 ml-3'>Tetap Disini</a>",base_url('assets/images/emot-sedih.jpg'),"","false");
 				}
 			}else{
 				$this->voice("gagal.mp3");

@@ -900,6 +900,64 @@ class C_Heijunka_WOS_KAP2 extends Construct
                         $ed = !empty($base_vin[$sfx]["ed"]) ? $base_vin[$sfx]["ed"] : $worksheet->getCellByColumnAndRow(23, $row)->getValue();
                         $order_column = !empty($base_vin[$sfx]["order_column"]) ? $base_vin[$sfx]["order_column"] : $worksheet->getCellByColumnAndRow(24, $row)->getValue();
                         $destination = !empty($base_vin[$sfx]["destination"]) ? $base_vin[$sfx]["destination"] : $worksheet->getCellByColumnAndRow(25, $row)->getValue();
+						if($model != "X02X"){
+							$katashiki_suffix = $worksheet->getCellByColumnAndRow(13, $row)->getValue();
+							//VLOOKUP BASE VIN
+							$sfx = $katashiki_suffix;
+							$wos_material = $worksheet->getCellByColumnAndRow(1, $row)->getValue();
+							$wos_material_description = $worksheet->getCellByColumnAndRow(2, $row)->getValue();
+							$sap_material = $worksheet->getCellByColumnAndRow(4, $row)->getValue();
+							$engine_model = $worksheet->getCellByColumnAndRow(5, $row)->getValue();
+							$engine_prefix = $worksheet->getCellByColumnAndRow(6, $row)->getValue();
+							$engine_number = $worksheet->getCellByColumnAndRow(7, $row)->getValue();
+							$plant = $worksheet->getCellByColumnAndRow(8, $row)->getValue();
+							$chassis_number = $worksheet->getCellByColumnAndRow(9, $row)->getValue();
+							$lot_code = $worksheet->getCellByColumnAndRow(10, $row)->getValue();
+							$lot_number = $worksheet->getCellByColumnAndRow(11, $row)->getValue();
+							$adm_production_id = $worksheet->getCellByColumnAndRow(14, $row)->getValue();
+							$tam_production_id = $worksheet->getCellByColumnAndRow(15, $row)->getValue();
+							$pdd = $worksheet->getCellByColumnAndRow(16, $row)->getValue();
+							if (!empty($pdd)) {
+								$pdd = explode(" ", $pdd);
+								if(strlen($pdd[2]) <= 2){
+									$year_pdd = "20" . $pdd[2];
+								}else{
+									$year_pdd = $pdd[2];
+								}
+								$month_pdd = $this->month_import($pdd[1]);
+								$day_pdd = $pdd[0];
+								$plan_delivery_date = $year_pdd . "-" . $month_pdd . "-" . $day_pdd;
+							} else {
+								$plan_delivery_date = NULL;
+							}
+
+							$pjid = $worksheet->getCellByColumnAndRow(17, $row)->getValue();
+							if (!empty($pjid)) {
+								$year_pjid = substr($pjid, 0, 4);
+								$month_pjid = substr($pjid, 4, 2);
+								$day_pjid = substr($pjid, 6, 2);
+								$plan_jig_in_date = $year_pjid . "-" . $month_pjid . "-" . $day_pjid;
+							} else {
+								$plan_jig_in_date = NULL;
+							}
+
+							$wrd = $worksheet->getCellByColumnAndRow(18, $row)->getValue();
+							if (!empty($wrd)) {
+								$day_wrd = substr($wrd, 0, 2);
+								$month_wrd = substr($wrd, 2, 2);
+								$year_wrd = substr($wrd, 4, 4);
+								$wos_release_date = $year_wrd . "-" . $month_wrd . "-" . $day_wrd;
+							} else {
+								$wos_release_date = NULL;
+							}
+							$sapwos_des = $worksheet->getCellByColumnAndRow(19, $row)->getValue();
+							$location = $worksheet->getCellByColumnAndRow(20, $row)->getValue();
+							$color_code = $worksheet->getCellByColumnAndRow(21, $row)->getValue();
+							$model = $worksheet->getCellByColumnAndRow(22, $row)->getValue();
+							$ed = $worksheet->getCellByColumnAndRow(23, $row)->getValue();
+							$order_column = $worksheet->getCellByColumnAndRow(24, $row)->getValue();
+							$destination = $worksheet->getCellByColumnAndRow(25, $row)->getValue();
+						}
                         if (!empty($sapnik)) {
                             if($model == "X01X"){
                                 $temp_data_td_link[] = array(
@@ -1589,7 +1647,7 @@ class C_Heijunka_WOS_KAP2 extends Construct
         exit;
     }
     
-
+    //BALIK 5 D74A ONLY
 	function dummy_process_kap()
 	{
         $start_no = empty($this->input->get("start_no")) ? 1 : $this->input->get("start_no");
@@ -1600,7 +1658,7 @@ class C_Heijunka_WOS_KAP2 extends Construct
         }
 		header('Content-Type: application/json');
 		//DELETE D74A LINK
-		$this->model->delete_heijunka("master","SAPNIK LIKE '%D74LINK%'");
+		$this->model->delete_heijunka("master","SAPNIK LIKE '%D74LINK%' OR Model = 'X02X' OR Model = 'X04X'");
 		$this->model->delete_heijunka("history_kap2","Heijunka = 'D74A-LINK'");
 
         $new_data_wos = [];
@@ -1608,7 +1666,7 @@ class C_Heijunka_WOS_KAP2 extends Construct
         $no_loop = $start_no;
         foreach ($check_batch as $check_batch) {
             $batch = $check_batch->batch;
-            $total_d74a_link = $this->model->gds_heijunka("master_kap2","COUNT(SAPNIK) as total","Model = 'D74A' AND batch = '$batch'","row");
+            $total_d74a_link = $this->model->gds_heijunka("master_kap2","COUNT(SAPNIK) as total","(Model = 'D74A' OR Model = 'D55L') AND batch = '$batch'","row");
             $total_master_kap1 = $this->model->gds_heijunka("master","COUNT(SAPNIK) as total","SAPNIK !='' AND batch = '$batch'","row");
             // //POS
             // if(empty($total_master_kap1->total)){
@@ -1618,14 +1676,23 @@ class C_Heijunka_WOS_KAP2 extends Construct
 
             $insert_d74a_link = [];
             $data_wos = [];
-            $master = $this->model->gds_heijunka("master_kap2","*","Model = 'D74A' AND batch = '$batch' ORDER BY No DESC","result");
+            $master = $this->model->gds_heijunka("master_kap2","*","(Model = 'D74A' OR Model = 'D55L') AND batch = '$batch' ORDER BY No DESC","result");
             $count_wos = count($master);
             //CHANGE VIN & MODEL TO DUMMY
             if(!empty($master)){
                 foreach ($master as $master) {
+                    // $pid = "5X".date("md",strtotime($pdd)).sprintf("%04d",$no_loop);
+                    // $model = $master->Model;
+                    // $new_vin = "D74LINK".$pid;
                     $pid = "5X".date("md",strtotime($pdd)).sprintf("%04d",$no_loop);
+                    $pid_dummy = "5X".substr(date("ymd", strtotime($pdd)), 1).sprintf("%03d",$no_loop);
                     $model = $master->Model;
-                    $new_vin = "D74LINK".$pid;
+                    $new_vin = "D74LINK".$pid_dummy;
+                    $Model = "X02X";
+                    if($master->Model == 'D55L'){
+                        $Model = "X04X";
+                        $new_vin = $master->SAPNIK;
+                    }
                     $insert_d74a_link[] = [
                         "WOS_Material" => $master->WOS_Material,
                         "WOS_Material_Description" => $master->WOS_Material_Description,
@@ -1649,7 +1716,7 @@ class C_Heijunka_WOS_KAP2 extends Construct
                         "Location" => 'No',
                         "Color_Code" => $master->Color_Code,
                         "tone" => $master->tone,
-                        "Model" => "X02X",
+                        "Model" => $Model,
                         "Model_Name" => $master->Model_Name,
                         "ED" => $master->ED,
                         "Order" => $master->Order,
@@ -1696,9 +1763,168 @@ class C_Heijunka_WOS_KAP2 extends Construct
             $this->swal_custom_icon("Gagal", 'Sistem tidak mendapatkan data KAP 2, mohon coba kembali.', base_url('assets/images/emot-sedih.jpg'), "rounded-circle","false");
             redirect("heijunka_wos_kap2");
         }
-		$this->swal_custom_icon("Sukses", "Proses update D74A LINK berhasil", base_url('assets/images/happy.png'), "","true");
-		redirect("heijunka_wos");
+		$this->swal_custom_icon("Sukses", "Proses update D74A LINK + D55L berhasil", base_url('assets/images/happy.png'), "","true");
+		redirect("heijunka_wos?dummy=no");
 	}
+
+    // public function dummy_process_kap()
+    // {
+    //     // 1. Inisialisasi & Security Check
+    //     $start_no = empty($this->input->get("start_no")) ? 1 : $this->input->get("start_no");
+    //     $pdd = $this->session->userdata("pdd_pis_kap2");
+        
+    //     if (empty($pdd)) {
+    //         $this->swal_custom_icon("Gagal", 'Sepertinya anda belum download PIS atau HardCopy.', base_url('assets/images/emot-sedih.jpg'), "rounded-circle", "false");
+    //         redirect("heijunka_wos_kap2");
+    //     }
+
+    //     header('Content-Type: application/json');
+
+    //     // 2. Clean Data Lama
+    //     $this->model->delete_heijunka("master", "SAPNIK LIKE '%D74LINK%'");
+    //     $this->model->delete_heijunka("history_kap2", "Heijunka = 'D74A-LINK'");
+
+    //     // 3. Ambil Batch
+    //     $check_batch = $this->model->gds_heijunka("master_kap2", "batch", "SAPNIK != '' GROUP BY batch ORDER BY batch ASC", "result");
+        
+    //     $new_data_wos = [];
+    //     $no_loop = $start_no;
+    //     $check_total_d74a = $this->model->gds_heijunka("master_kap2", "COUNT(SAPNIK) as total", "SAPNIK != '' AND Model = 'D74A'", "row");
+    //     $no_loop_d74a = $check_total_d74a->total;
+        
+    //     foreach ($check_batch as $b_row) {
+    //         $batch = $b_row->batch;
+            
+    //         // Ambil data master per batch
+    //         $master = $this->model->gds_heijunka("master_kap2", "*", "Model IN ('D74A', 'D55L') AND batch = '$batch' ORDER BY No ASC", "result");
+
+    //         if (!empty($master)) {
+    //             $template = []; // Buat nyatet urutan Model
+    //             $buckets  = []; // Wadah unit per Model
+                
+    //             // --- TAHAP 1: PISAHKAN BERDASARKAN MODEL ---
+    //             foreach ($master as $m) {
+    //                 $model_name = $m->Model;
+    //                 $template[] = $model_name; // Simpan urutan slot
+    //                 $buckets[$model_name][] = $m; // Masukkan unit ke keranjang masing-masing
+    //             }
+
+    //             // --- TAHAP 2: BALIK ISI BUCKET (PER 5 BARIS) ---
+    //             foreach ($buckets as $key => $units) {
+    //                 $processed_bucket = [];
+    //                 $chunked = array_chunk($units, 5); // Potong per 5
+                    
+    //                 foreach ($chunked as $chunk) {
+    //                     // Balik urutan di dalam potongan 5 baris itu, lalu gabungkan
+    //                     $processed_bucket = array_merge($processed_bucket, array_reverse($chunk));
+    //                 }
+                    
+    //                 // Simpan hasil reverse ke bucket lagi
+    //                 $buckets[$key] = $processed_bucket;
+    //             }
+
+    //             // --- TAHAP 3: RAKIT ULANG & GENERATE DUMMY DATA ---
+    //             $data_batch_final = [];
+    //             foreach ($template as $model_needed) {
+    //                 // Ambil 1 data dari depan bucket model yang sesuai
+    //                 $m_data = array_shift($buckets[$model_needed]);
+
+    //                 if ($m_data) {
+    //                     $pid = "5X" . date("md", strtotime($pdd)) . sprintf("%04d", $no_loop);
+    //                     $pid_dummy = "5X" . substr(date("ymd", strtotime($pdd)), 1) . sprintf("%03d", $no_loop_d74a);
+    //                     $new_vin = "";
+    //                     $model_code = "";
+    //                     $heijunka_tone = "";
+    //                     if($model_needed == "D74A"){
+    //                         $new_vin =  "D74LINK" . $pid_dummy;
+    //                         $model_code = "X02X";
+    //                         $heijunka_tone = "D74A-LINK";
+    //                     }
+
+    //                     if($model_needed == "D55L"){
+    //                         $new_vin = $m_data->SAPNIK;
+    //                         $model_code = "X04X";
+    //                         $heijunka_tone = "D55L-LINK";
+    //                     }
+
+
+    //                     $data_batch_final[] = [
+    //                         "WOS_Material"             => $m_data->WOS_Material,
+    //                         "WOS_Material_Description" => $m_data->WOS_Material_Description,
+    //                         "SAPNIK"                   => $new_vin,
+    //                         "SAP_Material"             => $m_data->SAP_Material,
+    //                         "Engine_Model"             => $m_data->Engine_Model,
+    //                         "Engine_Prefix"            => $m_data->Engine_Prefix,
+    //                         "Engine_Number"            => $m_data->Engine_Number,
+    //                         "Plant"                    => $m_data->Plant,
+    //                         "Chassis_Number"           => " " . $new_vin . " ",
+    //                         "Lot_Code"                 => $m_data->Lot_Code,
+    //                         "Lot_Number"               => $m_data->Lot_Number,
+    //                         "Katashiki"                => $m_data->Katashiki,
+    //                         "Katashiki_Sfx"            => $m_data->Katashiki_Sfx,
+    //                         "ADM_Production_Id"        => $pid,
+    //                         "TAM_Production_Id"        => $m_data->TAM_Production_Id,
+    //                         "Plan_Delivery_Date"       => date("d-M-Y", strtotime($m_data->Plan_Delivery_Date)),
+    //                         "Plan_Jig_In_Date"         => date("d-M-Y", strtotime($m_data->Plan_Jig_In_Date)),
+    //                         "WOS_Release_Date"         => $m_data->WOS_Release_Date,
+    //                         "SAPWOS_DES"               => $m_data->SAPWOS_DES,
+    //                         "Location"                 => 'No',
+    //                         "Color_Code"               => $m_data->Color_Code,
+    //                         "tone"                     => $m_data->tone,
+    //                         "Model"                    => $model_code,
+    //                         "Model_Name"               => $m_data->Model_Name,
+    //                         "ED"                       => $m_data->ED,
+    //                         "Order"                    => $m_data->Order,
+    //                         "Dest"                     => $m_data->Dest,
+    //                         "Transmisi"                => $m_data->Transmisi,
+    //                         "Color"                    => $m_data->Color,
+    //                         "Bot_Color"                => $m_data->Bot_Color,
+    //                         "Family_Model"             => $m_data->Family_Model,
+    //                         "model_both"               => $m_data->model_both,
+    //                         "heijunka_tone"            => $heijunka_tone,
+    //                         "sapnik_ori"               => $m_data->SAPNIK,
+    //                         "batch"                    => $batch,
+    //                     ];
+    //                     $no_loop++;
+    //                     if($model_needed == "D74A"){
+    //                         $no_loop_d74a--;
+    //                     }
+    //                 }
+    //             }
+
+    //             // --- TAHAP 4: KALKULASI NO URUT (POS) ---
+    //             $total_d74a_link = $this->model->gds_heijunka("master_kap2", "COUNT(SAPNIK) as total", "Model IN ('D74A', 'D55L') AND batch = '$batch'", "row");
+    //             $total_master_kap1 = $this->model->gds_heijunka("master", "COUNT(SAPNIK) as total", "SAPNIK !='' AND batch = '$batch'", "row");
+                
+    //             if ($total_d74a_link->total > 0) {
+    //                 $pos = number_format($total_master_kap1->total / $total_d74a_link->total, 2, ".", ",");
+    //                 foreach ($data_batch_final as $key => $val) {
+    //                     $data_batch_final[$key]["No"] = $pos * ($key + 1);
+    //                 }
+    //             }
+
+    //             $new_data_wos[$batch] = $data_batch_final;
+    //         }
+    //     }
+
+    //     // 4. Eksekusi Insert
+    //     if (!empty($new_data_wos)) {
+    //         foreach ($new_data_wos as $batch_data) {
+    //             $this->model->insert_batch_heijunka("master", $batch_data);
+    //         }
+
+    //         $this->model->insert_heijunka("history_kap2", [
+    //             "Heijunka" => "D74A-LINK",
+    //             "Status"   => "Sukses",
+    //         ]);
+
+    //         $this->swal_custom_icon("Sukses", "Proses update D74A & D55L LINK berhasil", base_url('assets/images/happy.png'), "", "true");
+    //         redirect("heijunka_wos?dummy=no");
+    //     } else {
+    //         $this->swal_custom_icon("Gagal", 'Sistem tidak mendapatkan data KAP 2.', base_url('assets/images/emot-sedih.jpg'), "rounded-circle", "false");
+    //         redirect("heijunka_wos_kap2");
+    //     }
+    // }
 
 	function reverseEveryFive($array) {
 		$keys = array_keys($array);
@@ -1724,9 +1950,8 @@ class C_Heijunka_WOS_KAP2 extends Construct
         //GET DATA PLAN WOS KAP2
         $data_kap2 = $this->model->gds("plan_wos_kap2", "suffix,plan", "suffix != ''", "result");
         if(empty($data_kap2)){
-            $this->swal("Error", "Data plan wos anda kosong, silahkan upload terlebih dahulu data plan wos.", "error");
-            redirect("plan_wos");
-            die();
+            $fb = ["statusCode" => 500, "res" => "Data plan wos anda kosong, silahkan upload terlebih dahulu data plan wos."];
+            $this->fb($fb);
         }
 
         $data_input = [];
@@ -1750,18 +1975,17 @@ class C_Heijunka_WOS_KAP2 extends Construct
         }
 
         if(empty($data_input)){
-            $this->swal("Error", "Data input tabungan kosong, silahkan check suffix apakah ada di tabungan vlt base atau qty plan wos anda kosong", "error");
-            redirect("plan_wos");
-            die();
+            $fb = ["statusCode" => 500, "res" => "Data input tabungan kosong, silahkan check suffix apakah ada di tabungan vlt base atau qty plan wos anda kosong"];
+            $this->fb($fb);
         }
 
         $insertBatch = $this->model->insert_batch("tabungan_vlt_kap2",$data_input);
         if($insertBatch){
-            $this->swal("Sukses", "Proses tabungan vlt dummy berhasil", "success");
+            $fb = ["statusCode" => 200, "res" => "Create tabungan dummy finish"];
         }else{
-            $this->swal("Error", "Gagal proses tabungan vlt dummy", "error");
+            $fb = ["statusCode" => 500, "res" => "Create tabungan dummy failed"];
         }
-        redirect("tabungan");
+        $this->fb($fb);
     }
 
 }

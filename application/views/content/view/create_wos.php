@@ -32,110 +32,114 @@
                 </div>
 		    <div class="col-lg-2"></div>
                 <div class="col-lg-6 pl-0" align="right">
-				<form action="<?= base_url("create_wos_sp_download"); ?>" target="_blank" method="get">
-					<div class="input-group">
-						<p class="ml-2 mr-2 mb-0 pt-1">Produksi :</p>
-						<input type="date" name="p" class="form-control" value="<?= date("Y-m-d") ?>" style="height:35px;">
-						<p class="ml-2 mr-2 mb-0 pt-1">Delivery :</p>
-						<input type="date" name="d" class="form-control" value="<?= date("Y-m-d") ?>" style="height:35px;">
-						<button class="btn btn-sm btn-success ml-2" title="Download" style="height:35px;">Download</button>
-						<a href="<?=base_url("")?>" class="btn btn-sm btn-danger ml-2" title="Main Menu" style="height:35px;">Main Menu</a>
-					</div>
-				</form>
+					<form id="formDownload" action="<?= base_url("create_wos_sp_download"); ?>" target="_blank" method="get">
+						<div class="input-group">
+							<p class="ml-2 mr-2 mb-0 pt-1">Produksi :</p>
+							<input type="date" name="p" id="p" class="form-control" value="<?= date("Y-m-d") ?>" style="height:35px;">
+							<p class="ml-2 mr-2 mb-0 pt-1">Delivery :</p>
+							<input type="date" name="d" id="d" class="form-control" value="<?= date("Y-m-d") ?>" style="height:35px;">
+							<button id="btnDownload" class="btn btn-sm btn-success ml-2" title="Download" style="height:35px;">Download</button>
+							<a href="<?=base_url("")?>" class="btn btn-sm btn-danger ml-2" title="Main Menu" style="height:35px;">Main Menu</a>
+						</div>
+					</form>
                 </div>
             </div>
 			<?php
-				$sub = ["Weld","Press"];
-				$pro_number_error = [];
-				foreach ($sub as $key => $value) {
-					?>
-					<h3><?= strtoupper($value)." PART" ?></h3>
-					<table class="table table-bordered table-hover table-sm w-100 tableFixHead" style="font-size:8pt;" id="datatable">
-						<thead class="thead-light">
-							<tr align="center">
-								<th class="align-middle">No.</th>
-								<th class="align-middle">Model</th>
-								<th class="align-middle">Job Number</th>
-								<th class="align-middle">Part Number</th>
-								<th class="align-middle">Part Name</th>
-								<th class="align-middle">Routing Part</th>
-								<th class="align-middle">Pcs</th>
-								<th class="align-middle">PRO</th>	
-								<th class="align-middle">Plan PRO</th>
-								<th class="align-middle" style="width:250px;">Remark</th>
-							</tr>
-						</thead>
-						<tbody>
-							<?php
-							$part_number = $this->model->gds_heijunka("create_wos","*,COUNT(No) as row_qty, SUM(Qty) as total","sub = '$value' GROUP BY Part_Number","result");
-							$part_number_total = $this->model->gds_heijunka("create_wos","*,SUM(Qty) as total","sub = '$value' GROUP BY sub","row");
-							if(!empty($part_number)){
-								$no = 1;
-								foreach ($part_number as $pn) {
-									$detail_part = $this->model->gds_heijunka("breakdown_sp","Breakdown,Part_Number,Part_Name,Route,Original_Part,Qty","Part_Number = '".$pn->Part_Number."' GROUP BY Breakdown ORDER BY (CASE WHEN Part_Number = Breakdown THEN 0 ELSE 1 END), Part_Number, Breakdown","result");
-									if(!empty($detail_part)){
-										foreach ($detail_part as $detail_part) {
-											if($detail_part->Part_Number == $detail_part->Breakdown){
-												$row_bg = "bg-dark text-white";
-												$row_no = '
-												<td class="align-middle '.$row_bg.'">'.$no.'</td>
-												<td class="align-middle '.$row_bg.'">'.$pn->type.'</td>';
-	
-												$get_pro_detail = $this->model->gds_heijunka("pro_number","*","part_number = '".$pn->Part_Number."'","row");
-												if(!empty($get_pro_detail)){
-													$pro = $get_pro_detail->pro_number;
-													$qty = $get_pro_detail->qty;
+				$line = ["1","2"];
+				foreach ($line as $key => $line_val) {
+					echo "<div class='w-100 p-2 text-center text-light bg-dark mb-2'><h3>KAP $line_val</h3></div>";
+					$sub = ["Weld","Press"];
+					$pro_number_error = [];
+					foreach ($sub as $key => $value) {
+						?>
+						<h3><?= strtoupper($value)." PART" ?></h3>
+						<table class="table table-bordered table-hover table-sm w-100 tableFixHead" style="font-size:8pt;" id="datatable">
+							<thead class="thead-light">
+								<tr align="center">
+									<th class="align-middle">No.</th>
+									<th class="align-middle">Model</th>
+									<th class="align-middle">Job Number</th>
+									<th class="align-middle">Part Number</th>
+									<th class="align-middle">Part Name</th>
+									<th class="align-middle">Routing Part</th>
+									<th class="align-middle">Pcs</th>
+									<th class="align-middle">PRO</th>	
+									<th class="align-middle">Plan PRO</th>
+									<th class="align-middle" style="width:250px;">Remark</th>
+								</tr>
+							</thead>
+							<tbody>
+								<?php
+								$part_number = $this->model->join_data_heijunka("create_wos a","breakdown_sp b","a.Part_Number=b.Breakdown","a.*,COUNT(a.No) as row_qty, SUM(a.Qty) as total","a.sub = '$value' AND b.line = '$line_val' GROUP BY Part_Number","result");
+								$part_number_total = $this->model->gds_heijunka("create_wos", "*, SUM(Qty) as total", "sub = '$value' GROUP BY sub", "row");
+								if(!empty($part_number)){
+									$no = 1;
+									foreach ($part_number as $pn) {
+										$detail_part = $this->model->gds_heijunka("breakdown_sp","Breakdown,Part_Number,Part_Name,Route,Original_Part,Qty","Part_Number = '".$pn->Part_Number."' GROUP BY Breakdown ORDER BY (CASE WHEN Part_Number = Breakdown THEN 0 ELSE 1 END), Part_Number, Breakdown","result");
+										if(!empty($detail_part)){
+											foreach ($detail_part as $detail_part) {
+												if($detail_part->Part_Number == $detail_part->Breakdown){
+													$row_bg = "bg-dark text-white";
+													$row_no = '
+													<td class="align-middle '.$row_bg.'">'.$no.'</td>
+													<td class="align-middle '.$row_bg.'">'.$pn->type.'</td>';
+		
+													$get_pro_detail = $this->model->gds_heijunka("pro_number","*","part_number = '".$pn->Part_Number."'","row");
+													if(!empty($get_pro_detail)){
+														$pro = $get_pro_detail->pro_number;
+														$qty = $get_pro_detail->qty;
+													}else{
+														$pro_number_error[] = [
+															"part_number" => $pn->Part_Number,
+															"model" => $pn->type,
+															"qty" => $pn->Qty
+														];
+														$pro = "-";
+														$qty = "-";
+													}
 												}else{
-													$pro_number_error[] = [
-														"part_number" => $pn->Part_Number,
-														"model" => $pn->type,
-														"qty" => $pn->Qty
-													];
-													$pro = "-";
-													$qty = "-";
+													$row_bg = "";
+													$row_no = '
+													<td></td>
+													<td></td>';
+													$pro = "";
+													$qty = "";
 												}
-											}else{
-												$row_bg = "";
-												$row_no = '
-												<td></td>
-												<td></td>';
-												$pro = "";
-												$qty = "";
+												?>
+												<tr align="center">
+													<?=$row_no?>
+													<td class="align-middle <?=$row_bg?>"><?=$detail_part->Original_Part?></td>
+													<td class="align-middle <?=$row_bg?>"><?=$detail_part->Breakdown?></td>
+													<td class="align-middle <?=$row_bg?>"><?=$detail_part->Part_Name?></td>
+													<td class="align-middle <?=$row_bg?>"><?=$detail_part->Route?></td>
+													<td class="align-middle <?=$row_bg?>"><?=($detail_part->Qty*$pn->total)?></td>
+													<td class="align-middle <?=$row_bg?>"><?= $pro; ?></td>	
+													<td class="align-middle <?=$row_bg?>"><?= $qty; ?></td>
+													<td class="align-middle <?=$row_bg?>"></td>
+												</tr>
+												<?php
 											}
-											?>
-											<tr align="center">
-												<?=$row_no?>
-												<td class="align-middle <?=$row_bg?>"><?=$detail_part->Original_Part?></td>
-												<td class="align-middle <?=$row_bg?>"><?=$detail_part->Breakdown?></td>
-												<td class="align-middle <?=$row_bg?>"><?=$detail_part->Part_Name?></td>
-												<td class="align-middle <?=$row_bg?>"><?=$detail_part->Route?></td>
-												<td class="align-middle <?=$row_bg?>"><?=($detail_part->Qty*$pn->total)?></td>
-												<td class="align-middle <?=$row_bg?>"><?= $pro; ?></td>	
-												<td class="align-middle <?=$row_bg?>"><?= $qty; ?></td>
-												<td class="align-middle <?=$row_bg?>"></td>
-											</tr>
-											<?php
+											$no++;
+										}else{
+											$part_number_error[] = [
+												"part_number" => $pn->Part_Number,
+												"model" => $pn->type,
+											];
 										}
-										$no++;
-									}else{
-										$part_number_error[] = [
-											"part_number" => $pn->Part_Number,
-											"model" => $pn->type,
-										];
 									}
+									?>
+									<tr>
+										<td colspan="6" style="background:black; text-align:right; color:white; border:solid 1px;">TOTAL&nbsp;&nbsp;</td>
+										<td style="background:black; text-align:center; color:white; border:solid 1px;"><?= $part_number_total->total; ?></td>
+										<td colspan="3" style="background:black; color:white; border:solid 1px;"></td>
+									</tr>
+									<?php
 								}
 								?>
-								<tr>
-									<td colspan="6" style="background:black; text-align:right; color:white; border:solid 1px;">TOTAL&nbsp;&nbsp;</td>
-									<td style="background:black; text-align:center; color:white; border:solid 1px;"><?= $part_number_total->total; ?></td>
-									<td colspan="3" style="background:black; color:white; border:solid 1px;"></td>
-								</tr>
-								<?php
-							}
-							?>
-						</tbody>
-					</table>
-					<?php
+							</tbody>
+						</table>
+						<?php
+					}
 				}
 			?>
         </div>

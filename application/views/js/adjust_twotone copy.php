@@ -25,65 +25,11 @@
     });
 
     function autofullfillnumber() {
-        // Kumpulkan semua suffix yang ada
-        var suffixes = [];
-        $(".suffix").each(function() {
-            suffixes.push($(this).text().trim());
-        });
-
-        // Untuk setiap suffix, isi data berdasarkan urutan tanggal (dari awal)
-        suffixes.forEach(function(suffix) {
-            var planLimit = parseInt($("#plan_" + suffix).html()) || 0;
-            var totalFilled = 0;
-
-            // Ambil semua input untuk suffix ini dan urutkan berdasarkan tanggal
-            var inputs = [];
-            $(".suffix_" + suffix).each(function() {
-                var id = $(this).attr("id");
-                // Format ID: input_<suffix>_<date>_<tone>
-                // Extract date dari ID
-                var parts = id.split("_");
-                // parts[0] = "input", parts[1] = suffix, parts[2...n-1] = date parts, parts[n] = tone
-                var toneType = parts[parts.length - 1];
-                var datePart = parts.slice(2, parts.length - 1).join("_");
-
-                inputs.push({
-                    element: $(this),
-                    id: id,
-                    datePart: datePart,
-                    toneType: toneType,
-                    placeholder: parseInt($(this).attr("placeholder")) || 0
-                });
-            });
-
-            // Sort berdasarkan date (format: YYYY-MM-DD)
-            inputs.sort(function(a, b) {
-                if (a.datePart < b.datePart) return -1;
-                if (a.datePart > b.datePart) return 1;
-                // Jika tanggal sama, prioritaskan single tone (1) sebelum two tone (2)
-                return parseInt(a.toneType) - parseInt(b.toneType);
-            });
-
-            // Isi input dari tanggal paling awal sampai limit plan tercapai
-            inputs.forEach(function(input) {
-                if (totalFilled >= planLimit) {
-                    // Sudah mencapai limit, kosongkan input
-                    input.element.val("");
-                } else {
-                    var availableStock = input.placeholder;
-                    var remainingPlan = planLimit - totalFilled;
-                    var fillValue = Math.min(availableStock, remainingPlan);
-
-                    if (fillValue > 0) {
-                        input.element.val(fillValue);
-                        totalFilled += fillValue;
-                    } else {
-                        input.element.val("");
-                    }
-                }
-                input.element.trigger("keyup");
-            });
-        });
+        $(".input-data").each(function (index,element) {
+            let dataPlan = $(this).attr("placeholder");
+            $(this).val(dataPlan);
+            $(this).trigger("keyup")
+        })
     }
 
     function validasi(stock,input,plan,keyval,pdd,tone) {

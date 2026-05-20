@@ -471,7 +471,7 @@
                                     }else if($data_wos->Model == "D26A"){
                                         $bg_model = "bg-info";
                                     }else{
-                                        $bg_model = "bg-white";
+                                        $bg_model = "bg-white text-dark";
                                     }
 
                                     if($data_wos->Dest != 'DOM'){

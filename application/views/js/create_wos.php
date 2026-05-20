@@ -29,3 +29,19 @@
     }
     ?>
 </script>
+<script>
+	document.getElementById("btnDownload").addEventListener("click", function(e) {
+		e.preventDefault(); // jangan submit dulu
+
+		let p = document.getElementById("p").value;
+		let d = document.getElementById("d").value;
+
+		// ============ TAB 1 (kap=1) ============
+		let url1 = "<?= base_url('create_wos_sp_download'); ?>?kap=1&p=" + p + "&d=" + d;
+		window.open(url1, "_blank");
+
+		// ============ TAB 2 (kap=2) ============
+		let url2 = "<?= base_url('create_wos_sp_download'); ?>?kap=2&p=" + p + "&d=" + d;
+		window.open(url2, "_blank");
+	});
+</script>

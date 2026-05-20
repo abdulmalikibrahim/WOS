@@ -4,6 +4,7 @@ $pdd = $this->input->post("pdd");
 $plan_jig_in = $this->input->post("plan_jig_in");
 header ("Content-type: application/vnd-ms-excel");
 header("Content-Disposition: attachment;filename = HARD COPY WOS KAP1 PDD ".date("d-m-Y",strtotime($pdd)).".xls");
+// header("Content-type: application/json");
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -37,8 +38,8 @@ header("Content-Disposition: attachment;filename = HARD COPY WOS KAP1 PDD ".date
                 $start1 = ($end_hit-100);
                 $start2 = $start1 + 50;
             }
-            $data_wos_hc2 = $this->model->union_heijunka_limit($start2,$limit,"ORDER BY batch,No DESC");
-            $data_wos_hc1 = $this->model->union_heijunka_limit($start1,$limit,"ORDER BY batch,No DESC");
+            $data_wos_hc1 = array_slice($data_wos, $start1, $limit);
+			$data_wos_hc2 = array_slice($data_wos, $start2, $limit);
             if(!empty($data_wos_hc1)){
                 $table1 .= '
                     <table width="100%" border="1">';

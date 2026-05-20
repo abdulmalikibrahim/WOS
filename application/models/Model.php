@@ -19,11 +19,7 @@ class model extends CI_Model
 		$this->db_heijunka->select($select);
 		$this->db_heijunka->where($where);
 		$this->db_heijunka->from($table);
-		if ($status == 'result') {
-			return $this->db_heijunka->get()->result();
-		} else {
-			return $this->db_heijunka->get()->row();
-		}
+		return $this->db_heijunka->get()->$status();
 	}
 	public function delete_heijunka($table, $where)
 	{
@@ -70,7 +66,7 @@ class model extends CI_Model
 
 	public function union_heijunka_print($order)
 	{
-		$query = "SELECT * FROM `master_print` UNION SELECT * FROM `master_td_link` WHERE SAPNIK != '' $order";
+		$query = "SELECT * FROM `master_print` WHERE SAPNIK != '' $order";
 		$db = $this->db_heijunka->query($query);
 		return $db->result();
 	}
