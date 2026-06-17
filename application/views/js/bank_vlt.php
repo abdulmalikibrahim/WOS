@@ -84,6 +84,8 @@ function loadSummary() {
 
             var modelHtml = '';
             $.each(r.per_model, function (i, m) {
+                /* persentase = Actual Receive / Total MDP * 100 */
+                var pct = (m.total_mdp > 0) ? Math.round((m.total / m.total_mdp) * 100) : 0;
                 modelHtml += '<div class="card shadow-sm mb-2 card-filter-target" style="cursor:pointer; min-width: 170px; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0; transition: all 0.2s ease-in-out;" onmouseover="this.style.transform=\'translateY(-3px)\'; this.style.boxShadow=\'0 6px 12px rgba(0,0,0,0.15)\';" onmouseout="this.style.transform=\'translateY(0)\'; this.style.boxShadow=\'0 2px 4px rgba(0,0,0,0.05)\';" onclick="filterByModelCard(\'' + escHtml(m.model) + '\', \'all\', this)">' +
                     '<div class="card-header text-center font-weight-bold text-light" style="font-size: 1.1rem; padding: 8px; background: linear-gradient(135deg, #17a2b8 0%, #117a8b 100%); border-bottom: none;">' + escHtml(m.model) + '</div>' +
                     '<div class="card-body p-0">' +
@@ -106,7 +108,7 @@ function loadSummary() {
                         '<div style="padding: 12px 0; background-color: #ffffff; border-bottom: 1px solid #dee2e6;">' +
                             '<div class="text-center" style="font-size: 0.85rem; font-weight: 700; color: #17a2b8; text-transform: uppercase; letter-spacing: 0.5px;">Actual Receive</div>' +
                             '<div class="text-center" style="font-size: 1.7rem; font-weight: 800; color: #117a8b; line-height: 1.1; margin-top: 4px;">' + m.total.toLocaleString() + '</div>' +
-                            '<div class="text-right pr-2" style="font-weight: 800; color: #117a8b; line-height: 1.1; margin-top: 4px;">0%</div>' +
+                            '<div class="text-right pr-2" style="font-weight: 800; color: #117a8b; line-height: 1.1; margin-top: 4px;">' + pct + '%</div>' +
                         '</div>' +
                         '<table class="table table-sm table-bordered mb-0" style="font-size: 0.95rem; border: none;">' +
                             '<thead style="background-color: #f8f9fa;">' +
