@@ -1,0 +1,693 @@
+<script src="<?= base_url('assets/plugins/datatables/jquery.dataTables.min.js') ?>"></script>
+<script src="<?= base_url('assets/plugins/datatables/dataTables.bootstrap4.min.js') ?>"></script>
+<script>
+/* ============================================================
+   BANK VLT – Server-Side DataTables
+   ============================================================ */
+
+var bvltTable        = null;
+var editingRowId     = null;
+var activeModelFilter  = null;
+var activeStatusFilter = null;
+
+/* Searchable columns → header checkbox-dropdown filters */
+var SEARCH_PARAMS = [
+    'wos_material', 'wos_material_description', 'sapnik', 'sap_material', 'engine_model',
+    'engine_prefix', 'engine_number', 'plant_excel', 'chassis_number', 'lot_code',
+    'lot_number', 'katashiki', 'katashiki_suffix', 'adm_production_id', 'tam_production_id',
+    'plan_delivery_date', 'plan_jig_in_date', 'wos_release_date', 'sapwos_des', 'location',
+    'color_code', 'ed', 'order_column', 'destination', 'model',
+];
+
+var excelFilters = {};   /* param → Set of selected values */
+var excelValues  = {};   /* param → array of distinct values */
+SEARCH_PARAMS.forEach(function (p) { excelFilters[p] = new Set(); excelValues[p] = []; });
+
+/* ──────────────────────────────────────
+   INIT
+────────────────────────────────────── */
+$(document).ready(function () {
+    var now = new Date();
+    var y   = now.getFullYear();
+    var m   = String(now.getMonth() + 1).padStart(2, '0');
+    $('#f-month').val(y + '-' + m);
+    $('#f-status').val('0');
+
+    initDataTable();
+    loadSummary();
+    loadFilterOptions();
+    initUploadZone();
+
+    /* Close any open header dropdown when clicking elsewhere */
+    document.addEventListener('click', function () {
+        document.querySelectorAll('.dt-dd-panel').forEach(function (p) { p.style.display = 'none'; });
+    });
+});
+
+/* ──────────────────────────────────────
+   DATATABLE INIT
+────────────────────────────────────── */
+function initDataTable() {
+    bvltTable = $('#bvlt-table').DataTable({
+        processing:  true,
+        serverSide:  true,
+        searching:   false,
+        ordering:    true,
+        orderCellsTop: true,
+        pageLength:  10,
+        lengthMenu:  [10, 25, 50, 100, 200],
+        dom: '<"d-flex justify-content-between align-items-center flex-wrap mb-2"l<"text-muted small"i>>rt<"d-flex justify-content-end mt-2"p>',
+        ajax: {
+            url:  '<?= base_url("datatable_bank_vlt") ?>',
+            type: 'POST',
+            data: function (d) {
+                var range         = monthToRange($('#f-month').val());
+                d.start_date      = range.start;
+                d.end_date        = range.end;
+                d.already_process = $('#f-status').val();
+                d.model_filter    = (activeModelFilter && activeModelFilter !== 'all') ? activeModelFilter : '';
+
+                /* column filter values (multi-select dropdowns) */
+                SEARCH_PARAMS.forEach(function (p) {
+                    if (excelFilters[p].size > 0) d['f_' + p] = Array.from(excelFilters[p]);
+                });
+
+                /* pass order as simple params */
+                if (d.order && d.order[0]) {
+                    d.order_col = d.order[0].column;
+                    d.order_dir = d.order[0].dir;
+                }
+                return d;
+            },
+        },
+        columns: [
+            /* 0  No */
+            { data: null, orderable: false,
+              render: function (d, t, r, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
+            /* 1  wos_material */
+            { data: 'wos_material' },
+            /* 2  wos_material_description */
+            { data: 'wos_material_description', className: 'td-left',
+              render: function (d) { return '<span style="white-space:normal;max-width:220px;display:block;">' + escHtml(d || '') + '</span>'; } },
+            /* 3  sapnik */     { data: 'sapnik' },
+            /* 4  sap_material */{ data: 'sap_material' },
+            /* 5  engine_model */{ data: 'engine_model' },
+            /* 6  engine_prefix */{ data: 'engine_prefix' },
+            /* 7  engine_number */{ data: 'engine_number' },
+            /* 8  plant_excel */ { data: 'plant_excel' },
+            /* 9  chassis_number */{ data: 'chassis_number' },
+            /* 10 lot_code */   { data: 'lot_code' },
+            /* 11 lot_number */ { data: 'lot_number' },
+            /* 12 katashiki */  { data: 'katashiki' },
+            /* 13 katashiki_suffix */{ data: 'katashiki_suffix' },
+            /* 14 adm_production_id */{ data: 'adm_production_id' },
+            /* 15 tam_production_id */{ data: 'tam_production_id' },
+            /* 16 plan_delivery_date */{ data: 'plan_delivery_date' },
+            /* 17 plan_jig_in_date */{ data: 'plan_jig_in_date' },
+            /* 18 wos_release_date */{ data: 'wos_release_date' },
+            /* 19 sapwos_des */ { data: 'sapwos_des' },
+            /* 20 location */   { data: 'location' },
+            /* 21 color_code */ { data: 'color_code' },
+            /* 22 ed */         { data: 'ed' },
+            /* 23 order_column */{ data: 'order_column' },
+            /* 24 destination */{ data: 'destination' },
+            /* 25 model */
+            { data: 'model',
+              render: function (d) { return d ? '<strong style="color:#1565C0">' + escHtml(d) + '</strong>' : ''; } },
+            /* 26 status */
+            { data: 'already_process', orderable: false,
+              render: function (d) {
+                  return d == 1
+                      ? '<span class="badge-proses">&#10003; Already</span>'
+                      : '<span class="badge-belum">&#9203; Not Yet</span>';
+              }},
+            /* 27 plant */
+            { data: 'plant', orderable: false,
+              render: function (d) { return d ? 'KAP ' + escHtml(d) : ''; } },
+            /* 28 pdd */
+            { data: 'pdd_proses', orderable: false },
+            /* 29 action */
+            { data: null, orderable: false,
+              render: function (d, t, row) {
+                  return '<button class="btn-edit-row" onclick="editRow(' + row.id + ')"><i class="fas fa-edit"></i> Edit</button>' +
+                         '<button class="btn-reason-row ml-2" onclick="reasonChange(' + row.id + ')"><i class="fas fa-history"></i> Reason Changes</button>';
+              }},
+        ],
+        createdRow: function (row, data) {
+            $(row).attr('data-id', data.id);
+            if (data.already_process == 1) $(row).addClass('row-done');
+
+            /* Tag editable cells for inline-edit */
+            var fieldMap = [
+                null,
+                {f:'wos_material',t:'text'},
+                {f:'wos_material_description',t:'text'},
+                {f:'sapnik',t:'text'},
+                {f:'sap_material',t:'text'},
+                {f:'engine_model',t:'text'},
+                {f:'engine_prefix',t:'text'},
+                {f:'engine_number',t:'text'},
+                {f:'plant_excel',t:'text'},
+                {f:'chassis_number',t:'text'},
+                {f:'lot_code',t:'text'},
+                {f:'lot_number',t:'text'},
+                {f:'katashiki',t:'text'},
+                {f:'katashiki_suffix',t:'text'},
+                {f:'adm_production_id',t:'text'},
+                {f:'tam_production_id',t:'text'},
+                {f:'plan_delivery_date',t:'date'},
+                {f:'plan_jig_in_date',t:'date'},
+                {f:'wos_release_date',t:'date'},
+                {f:'sapwos_des',t:'text'},
+                {f:'location',t:'text'},
+                {f:'color_code',t:'text'},
+                {f:'ed',t:'text'},
+                {f:'order_column',t:'text'},
+                {f:'destination',t:'text'},
+                {f:'model',t:'text'},
+                null, null, null, null,
+            ];
+            $(row).find('td').each(function (i) {
+                if (fieldMap[i]) {
+                    $(this).attr({
+                        'data-field': fieldMap[i].f,
+                        'data-val':   data[fieldMap[i].f] || '',
+                        'data-type':  fieldMap[i].t
+                    });
+                }
+            });
+        },
+        preDrawCallback: function () {
+            /* cancel any in-progress edit before re-draw */
+            if (editingRowId !== null) { editingRowId = null; }
+        },
+        language: {
+            processing:  '<i class="fas fa-circle-notch spin mr-1"></i> Memuat data...',
+            emptyTable:  '<div class="empty-state"><i class="fas fa-inbox"></i><br>Tidak ada data</div>',
+            zeroRecords: '<div class="empty-state"><i class="fas fa-search"></i><br>Tidak ada data yang sesuai filter</div>',
+            lengthMenu:  'Tampilkan _MENU_ data',
+            info:        'Menampilkan _START_–_END_ dari _TOTAL_ data',
+            infoEmpty:   'Menampilkan 0–0 dari 0 data',
+            infoFiltered:'(difilter dari _MAX_ total)',
+            paginate:    { first: '«', previous: '‹', next: '›', last: '»' },
+        },
+        order: [[16, 'asc']],
+    });
+}
+
+/* ──────────────────────────────────────
+   LOAD / REFRESH
+────────────────────────────────────── */
+function loadData() {
+    loadSummary();
+    resetColumnFilters();
+    loadFilterOptions();
+    if (bvltTable) bvltTable.ajax.reload();
+}
+
+function resetFilter() {
+    var now = new Date();
+    var y   = now.getFullYear();
+    var m   = String(now.getMonth() + 1).padStart(2, '0');
+    $('#f-month').val(y + '-' + m);
+    $('#f-status').val('0');
+    resetColumnFilters();
+    clearActiveFilters();
+}
+
+/* Clear all header dropdown selections (no reload) */
+function resetColumnFilters() {
+    SEARCH_PARAMS.forEach(function (p) {
+        excelFilters[p].clear();
+        updateDropdownBtn(p);
+    });
+    document.querySelectorAll('.dt-dd-panel').forEach(function (panel) { panel.style.display = 'none'; });
+}
+
+/* ──────────────────────────────────────
+   HEADER CHECKBOX-DROPDOWN FILTERS
+────────────────────────────────────── */
+function loadFilterOptions() {
+    var range = monthToRange($('#f-month').val());
+    $.get('<?= base_url("get_filter_options_bank_vlt") ?>', {
+        start_date:      range.start,
+        end_date:        range.end,
+        already_process: $('#f-status').val(),
+        model_filter:    (activeModelFilter && activeModelFilter !== 'all') ? activeModelFilter : ''
+    }, function (res) {
+        if (res && res.status === 'success') {
+            SEARCH_PARAMS.forEach(function (p) { excelValues[p] = res.options[p] || []; });
+        }
+    }, 'json');
+}
+
+function toggleDropdown(event, key) {
+    event.stopPropagation();
+    var panel  = document.getElementById('dd-panel-' + key);
+    var btn    = document.getElementById('dd-btn-'   + key);
+    var isOpen = panel.style.display !== 'none';
+
+    document.querySelectorAll('.dt-dd-panel').forEach(function (p) { p.style.display = 'none'; });
+
+    if (!isOpen) {
+        buildDropdownPanel(key);
+        panel.style.display = 'block';
+        var rect = btn.getBoundingClientRect();
+        panel.style.top  = (rect.bottom + 3) + 'px';
+        panel.style.left = rect.left + 'px';
+    }
+}
+
+function buildDropdownPanel(key) {
+    var vals       = excelValues[key];
+    var selected   = excelFilters[key];
+    var allChecked = selected.size === 0;
+
+    var itemsHtml = vals.length
+        ? vals.map(function (v) {
+            var checked = allChecked || selected.has(v) ? 'checked' : '';
+            var label   = v === '' ? '<i>(kosong)</i>' : esc(v);
+            return '<div class="dt-dd-item">' +
+                   '<label style="cursor:pointer;margin:0;display:flex;align-items:center;gap:6px;width:100%;">' +
+                   '<input type="checkbox" class="dd-chk" value="' + esc(v) + '" ' + checked + '>' +
+                   '<span title="' + esc(v) + '">' + label + '</span></label></div>';
+        }).join('')
+        : '<div class="text-muted py-2 text-center" style="font-size:.7rem;">Tidak ada data</div>';
+
+    document.getElementById('dd-panel-' + key).innerHTML =
+        '<div class="dt-dd-search">' +
+        '<input type="text" class="form-control form-control-sm" placeholder="Cari nilai..." oninput="ddSearch(this,\'' + key + '\')">' +
+        '</div>' +
+        '<div class="dt-dd-select-all" onclick="ddClickSelectAll(\'' + key + '\')">' +
+        '<input type="checkbox" id="dd-all-' + key + '" ' + (allChecked ? 'checked' : '') + ' onclick="event.stopPropagation(); ddToggleAll(this,\'' + key + '\')">' +
+        '<span>Pilih Semua</span></div>' +
+        '<div class="dt-dd-list" id="dd-list-' + key + '">' + itemsHtml + '</div>' +
+        '<div class="dt-dd-footer">' +
+        '<button class="btn btn-sm btn-primary" onclick="applyExcelFilter(\'' + key + '\')">Terapkan</button>' +
+        '<button class="btn btn-sm btn-outline-secondary" onclick="resetExcelFilter(\'' + key + '\')">Reset</button>' +
+        '</div>';
+
+    var panel = document.getElementById('dd-panel-' + key);
+    panel.addEventListener('click', function (e) { e.stopPropagation(); });
+    document.getElementById('dd-list-' + key).addEventListener('change', function () { syncDdSelectAll(key); });
+}
+
+function ddSearch(input, key) {
+    var q = input.value.toLowerCase();
+    document.querySelectorAll('#dd-list-' + key + ' .dt-dd-item').forEach(function (item) {
+        var txt = item.querySelector('span').textContent.toLowerCase();
+        item.classList.toggle('dd-hidden', txt.indexOf(q) === -1);
+    });
+    syncDdSelectAll(key);
+}
+
+function ddClickSelectAll(key) {
+    var chk = document.getElementById('dd-all-' + key);
+    chk.checked = !chk.checked;
+    ddToggleAll(chk, key);
+}
+
+function ddToggleAll(chk, key) {
+    document.querySelectorAll('#dd-list-' + key + ' .dt-dd-item:not(.dd-hidden) .dd-chk').forEach(function (cb) {
+        cb.checked = chk.checked;
+    });
+    syncDdSelectAll(key);
+}
+
+function syncDdSelectAll(key) {
+    var all     = document.querySelectorAll('#dd-list-' + key + ' .dt-dd-item:not(.dd-hidden) .dd-chk');
+    var checked = document.querySelectorAll('#dd-list-' + key + ' .dt-dd-item:not(.dd-hidden) .dd-chk:checked');
+    var allChk  = document.getElementById('dd-all-' + key);
+    if (!allChk) return;
+    allChk.checked       = all.length > 0 && checked.length === all.length;
+    allChk.indeterminate = checked.length > 0 && checked.length < all.length;
+}
+
+function applyExcelFilter(key) {
+    var checked = Array.prototype.slice.call(document.querySelectorAll('#dd-list-' + key + ' .dd-chk:checked'));
+    excelFilters[key].clear();
+    if (checked.length < excelValues[key].length) {
+        checked.forEach(function (cb) { excelFilters[key].add(cb.value); });
+    }
+    updateDropdownBtn(key);
+    document.getElementById('dd-panel-' + key).style.display = 'none';
+    if (bvltTable) bvltTable.ajax.reload();
+}
+
+function resetExcelFilter(key) {
+    excelFilters[key].clear();
+    updateDropdownBtn(key);
+    document.getElementById('dd-panel-' + key).style.display = 'none';
+    if (bvltTable) bvltTable.ajax.reload();
+}
+
+function updateDropdownBtn(key) {
+    var btn = document.getElementById('dd-btn-' + key);
+    if (!btn) return;
+    var n = excelFilters[key].size;
+    btn.innerHTML = n === 0
+        ? 'Semua <i class="fas fa-chevron-down fa-xs"></i>'
+        : n + ' dipilih <i class="fas fa-filter fa-xs"></i>';
+    btn.classList.toggle('filtered', n > 0);
+}
+
+function esc(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/* ──────────────────────────────────────
+   LOAD SUMMARY CARDS
+────────────────────────────────────── */
+function loadSummary() {
+    var ym     = $('#f-month').val();
+    var parts  = ym ? ym.split('-') : [];
+    var params = parts.length === 2 ? { year: parts[0], month: parts[1] } : {};
+
+    $.ajax({
+        url: '<?= base_url("get_summary_bank_vlt") ?>',
+        type: 'GET',
+        data: params,
+        dataType: 'json',
+        success: function (r) {
+            $('#card-total').text(r.total.toLocaleString());
+            $('#card-belum').text(r.belum_proses.toLocaleString());
+            $('#card-sudah').text(r.sudah_proses.toLocaleString());
+
+            var modelHtml = '';
+            $.each(r.per_model, function (i, m) {
+                modelHtml += '<div class="card shadow-sm mb-2 card-filter-target" style="cursor:pointer; min-width: 170px; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0; transition: all 0.2s ease-in-out;" onmouseover="this.style.transform=\'translateY(-3px)\'; this.style.boxShadow=\'0 6px 12px rgba(0,0,0,0.15)\';" onmouseout="this.style.transform=\'translateY(0)\'; this.style.boxShadow=\'0 2px 4px rgba(0,0,0,0.05)\';" onclick="filterByModelCard(\'' + escHtml(m.model) + '\', \'all\', this)">' +
+                    '<div class="card-header text-center font-weight-bold text-light" style="font-size: 1.1rem; padding: 8px; background: linear-gradient(135deg, #17a2b8 0%, #117a8b 100%); border-bottom: none;">' + escHtml(m.model) + '</div>' +
+                    '<div class="card-body p-0">' +
+                        '<table class="table table-sm table-bordered mb-0" style="font-size: 0.8rem; border-left: none; border-right: none;">' +
+                            '<thead style="background-color: #f8f9fa;"><tr class="text-center">' +
+                                '<th style="font-weight: 600; color: #555; border-top: none; border-left: none;">Plan</th>' +
+                                '<th style="font-weight: 600; color: #555; border-top: none;">Add.</th>' +
+                                '<th style="font-weight: 600; color: #555; border-top: none; border-right: none;">Total</th>' +
+                            '</tr></thead>' +
+                            '<tbody><tr class="text-center text-dark font-weight-bold">' +
+                                '<td style="border-left: none;" id="total-plan-' + m.model + '">....</td>' +
+                                '<td id="total-add-' + m.model + '">....</td>' +
+                                '<td style="border-right: none;" id="grand-total-' + m.model + '">....</td>' +
+                            '</tr></tbody>' +
+                        '</table>' +
+                        '<div style="padding: 12px 0; background-color: #ffffff; border-bottom: 1px solid #dee2e6;">' +
+                            '<div class="text-center" style="font-size: 0.85rem; font-weight: 700; color: #17a2b8; text-transform: uppercase; letter-spacing: 0.5px;">Actual Receive</div>' +
+                            '<div class="text-center" style="font-size: 1.7rem; font-weight: 800; color: #117a8b; line-height: 1.1; margin-top: 4px;">' + m.total.toLocaleString() + '</div>' +
+                            '<div class="text-right pr-2" style="font-weight: 800; color: #117a8b; line-height: 1.1; margin-top: 4px;">0%</div>' +
+                        '</div>' +
+                        '<table class="table table-sm table-bordered mb-0" style="font-size: 0.95rem; border: none;">' +
+                            '<thead style="background-color: #f8f9fa;"><tr class="text-center">' +
+                                '<th style="width: 50%; border-left: none; border-top: none;"><i class="fas fa-check-circle text-success" style="font-size:16pt;"></i></th>' +
+                                '<th style="width: 50%; border-right: none; border-top: none;"><i class="fas fa-times-circle text-danger" style="font-size:16pt;"></i></th>' +
+                            '</tr></thead>' +
+                            '<tbody><tr class="text-center">' +
+                                '<td onclick="event.stopPropagation(); filterByModelCard(\'' + escHtml(m.model) + '\', \'1\', this)" style="cursor:pointer; font-weight: bold; color: #28a745; border-left: none; border-bottom: none;" title="Sudah Diproses" onmouseover="this.style.backgroundColor=\'#e8f5e9\'" onmouseout="this.style.backgroundColor=\'transparent\'">' + m.sudah_proses.toLocaleString() + '</td>' +
+                                '<td onclick="event.stopPropagation(); filterByModelCard(\'' + escHtml(m.model) + '\', \'0\', this)" style="cursor:pointer; font-weight: bold; color: #dc3545; border-right: none; border-bottom: none;" title="Belum Diproses" onmouseover="this.style.backgroundColor=\'#ffebee\'" onmouseout="this.style.backgroundColor=\'transparent\'">' + m.belum_proses.toLocaleString() + '</td>' +
+                            '</tr></tbody>' +
+                        '</table>' +
+                    '</div>' +
+                '</div>';
+            });
+            loadDataSummary();
+            $('#model-cards').html(modelHtml || '<span style="color:#aaa;font-size:.8rem;">Belum ada data model</span>');
+        },
+        error: function () {}
+    });
+}
+
+/* ──────────────────────────────────────
+   CARD FILTER
+────────────────────────────────────── */
+function applyCardFilters() {
+    $('#btn-clear-filter').toggle(activeModelFilter !== null || activeStatusFilter !== null);
+    loadFilterOptions();
+    if (bvltTable) bvltTable.ajax.reload();
+}
+
+function filterByModelCard(model, status, el) {
+    $('.card-filter-target, .model-active').removeClass('model-active card-active');
+    if (el) $(el).closest('.card').addClass('model-active');
+
+    activeModelFilter  = model;
+    activeStatusFilter = status;
+
+    if (status !== 'all') $('#f-status').val(status);
+    applyCardFilters();
+}
+
+function filterBySummary(status, el) {
+    $('.card-filter-target, .model-active').removeClass('model-active card-active');
+    if (el) $(el).addClass('card-active');
+
+    activeModelFilter  = 'all';
+    activeStatusFilter = status;
+
+    $('#f-status').val(status === 'all' ? '' : status);
+    applyCardFilters();
+}
+
+function clearActiveFilters() {
+    $('.card-filter-target, .model-active').removeClass('model-active card-active');
+    activeModelFilter  = null;
+    activeStatusFilter = null;
+    $('#btn-clear-filter').hide();
+    resetColumnFilters();
+    loadFilterOptions();
+    if (bvltTable) bvltTable.ajax.reload();
+}
+
+/* ──────────────────────────────────────
+   INLINE EDIT
+────────────────────────────────────── */
+function editRow(id) {
+    if (editingRowId !== null && editingRowId !== id) cancelEdit();
+    editingRowId = id;
+
+    var $row = $('tr[data-id="' + id + '"]');
+    $row.addClass('editing');
+
+    $row.find('td[data-field]').each(function () {
+        var field = $(this).data('field');
+        var val   = $(this).data('val');
+        var type  = $(this).data('type');
+        var inp;
+
+        if (type === 'status') {
+            inp = '<select class="inline-input" data-field="' + field + '">' +
+                '<option value="0"' + (val == 0 ? ' selected' : '') + '>Belum Proses</option>' +
+                '<option value="1"' + (val == 1 ? ' selected' : '') + '>Sudah Proses</option>' +
+                '</select>';
+        } else {
+            inp = '<input type="' + type + '" class="inline-input" data-field="' + field + '" value="' + escHtml(val) + '">';
+        }
+        $(this).html(inp);
+    });
+
+    $row.find('.td-action, td:last-child').html(
+        '<button class="btn-cancel-row" onclick="cancelEdit()"><i class="fas fa-times"></i> Batal</button>'
+    );
+
+    $row.find('.inline-input').on('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); showReasonModal(); }
+    });
+}
+
+function cancelEdit() {
+    editingRowId = null;
+    bvltTable.ajax.reload(null, false);
+}
+
+function collectEditData() {
+    var $row = $('tr[data-id="' + editingRowId + '"]');
+    var data = { id: editingRowId };
+    $row.find('.inline-input').each(function () {
+        data[$(this).data('field')] = $(this).val();
+    });
+    return data;
+}
+
+function showReasonModal() {
+    swal.fire({
+        title: 'Konfirmasi Perubahan',
+        html: '<div style="text-align:left;margin-top:4px" class="p-2">' +
+              '<label style="font-size:.82rem;font-weight:600;color:#444;display:block;margin-bottom:4px">Reason <span style="color:red">*</span></label>' +
+              '<input id="swal-reason" class="swal2-input" style="width:95% !important; margin:0 0 14px;font-size:.85rem" placeholder="Masukkan alasan perubahan...">' +
+              '<label style="font-size:.82rem;font-weight:600;color:#444;display:block;margin-bottom:4px">PIC <span style="color:red">*</span></label>' +
+              '<input id="swal-pic" class="swal2-input" style="width:95% !important; margin:0;font-size:.85rem" placeholder="Nama penanggung jawab...">' +
+              '</div>',
+        showCancelButton: true,
+        confirmButtonText: '<i class="fas fa-save"></i> Simpan',
+        cancelButtonText:  '<i class="fas fa-times"></i> Batal',
+        confirmButtonColor: '#1565C0',
+        cancelButtonColor:  '#9E9E9E',
+        width: '420px',
+        didOpen: function () { document.getElementById('swal-reason').focus(); },
+        preConfirm: function () {
+            var reason = $('#swal-reason').val().trim();
+            var pic    = $('#swal-pic').val().trim();
+            if (!reason) { swal.showValidationMessage('Reason wajib diisi'); return false; }
+            if (!pic)    { swal.showValidationMessage('PIC wajib diisi');    return false; }
+            return { reason: reason, pic: pic };
+        }
+    }).then(function (result) {
+        if (result.isConfirmed) saveInlineEdit(result.value.reason, result.value.pic);
+    });
+}
+
+function saveInlineEdit(reason, pic) {
+    var postData    = collectEditData();
+    postData.reason = reason;
+    postData.pic    = pic;
+
+    $.ajax({
+        url: '<?= base_url("save_edit_bank_vlt") ?>',
+        type: 'POST',
+        data: postData,
+        dataType: 'json',
+        beforeSend: function () {
+            swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: function () { swal.showLoading(); } });
+        },
+        success: function (r) {
+            if (r.status === 'success') {
+                swal.fire({ icon: 'success', title: 'Berhasil', text: 'Data berhasil disimpan', timer: 1200, showConfirmButton: false });
+                editingRowId = null;
+                bvltTable.ajax.reload(null, false);
+                loadSummary();
+            } else {
+                swal.fire('Gagal', r.msg || 'Terjadi kesalahan', 'error');
+            }
+        },
+        error: function () { swal.fire('Error', 'Gagal menyimpan data', 'error'); }
+    });
+}
+
+/* ──────────────────────────────────────
+   REASON CHANGES
+────────────────────────────────────── */
+function reasonChange(id) {
+    $.ajax({
+        url: '<?= base_url("get_reason_bank_vlt") ?>',
+        type: 'GET',
+        data: { id: id },
+        dataType: 'json',
+        beforeSend: function () {
+            swal.fire({ title: 'Memuat...', allowOutsideClick: false, didOpen: function () { swal.showLoading(); } });
+        },
+        success: function (r) {
+            if (r.status === 'success') {
+                var d = r.data;
+                var reason = d.reason ? escHtml(d.reason) : '<i>Belum ada alasan</i>';
+                var pic    = d.pic    ? escHtml(d.pic)    : '-';
+                var lu     = d.last_updated || '-';
+
+                swal.fire({
+                    title: 'Reason Changes',
+                    html: '<div style="text-align:left; font-size:0.9rem;">' +
+                          '<table style="width:100%; border-collapse: collapse; margin-top: 15px;">' +
+                          '<tr><th style="width:35%; background:#f0f4f8; padding:8px; border:1px solid #ddd;">PIC</th><td style="padding:8px; border:1px solid #ddd;">' + pic + '</td></tr>' +
+                          '<tr><th style="background:#f0f4f8; padding:8px; border:1px solid #ddd;">Reason</th><td style="padding:8px; border:1px solid #ddd;">' + reason + '</td></tr>' +
+                          '<tr><th style="background:#f0f4f8; padding:8px; border:1px solid #ddd;">Last Updated</th><td style="padding:8px; border:1px solid #ddd;">' + lu + '</td></tr>' +
+                          '</table></div>',
+                    confirmButtonText: '<i class="fas fa-times"></i> Tutup',
+                    confirmButtonColor: '#1565C0',
+                });
+            } else {
+                swal.fire('Gagal', r.msg || 'Terjadi kesalahan', 'error');
+            }
+        },
+        error: function () { swal.fire('Error', 'Gagal memuat data', 'error'); }
+    });
+}
+
+/* ──────────────────────────────────────
+   DOWNLOAD CSV (server-side, 6 kolom)
+────────────────────────────────────── */
+function downloadExcel() {
+    var range  = monthToRange($('#f-month').val());
+    var params = $.param({
+        start_date:      range.start,
+        end_date:        range.end,
+        already_process: $('#f-status').val(),
+    });
+    window.location.href = '<?= base_url("download_csv_bank_vlt") ?>?' + params;
+}
+
+/* ──────────────────────────────────────
+   UPLOAD ZONE
+────────────────────────────────────── */
+function initUploadZone() {
+    $('#bvlt-file-input').on('change', function () {
+        var name = this.files[0] ? this.files[0].name : 'Pilih File Excel';
+        $('#bvlt-file-label').text(name);
+    });
+
+    $('#form-upload').on('submit', function () {
+        if (!$('#bvlt-file-input')[0].files[0]) {
+            swal.fire('Perhatian', 'Silahkan pilih file Excel terlebih dahulu', 'warning');
+            return false;
+        }
+        $('#btn-upload').html('<i class="fas fa-circle-notch spin"></i> Mengupload...').prop('disabled', true);
+    });
+}
+
+/* ──────────────────────────────────────
+   SUFFIX CONTROL SUMMARY
+────────────────────────────────────── */
+function loadDataSummary() {
+    const p = parsePeriod($('#f-month').val());
+    if (!p) return;
+
+    $.get('<?=base_url("get_data_suffix_control")?>', { month: p.month, year: p.year }, function (res) {
+        if (res.status === 'ok') {
+            scData = res.data || {};
+            renderCards();
+        }
+    }, 'json');
+}
+
+function parsePeriod(val) {
+    if (!val) return null;
+    const [y, m] = val.split('-').map(Number);
+    return { year: y, month: m };
+}
+
+var scData = {};
+
+function renderCards() {
+    const codes = Object.keys(scData);
+    codes.forEach(function (mc) {
+        const d = scData[mc];
+        const t = d.totals;
+        if ($('#total-plan-' + mc).length) {
+            $('#total-plan-'  + mc).html(t.plan_mdp.toLocaleString());
+            $('#total-add-'   + mc).html(t.add_mdp.toLocaleString());
+            $('#grand-total-' + mc).html(t.total_plan.toLocaleString());
+        }
+    });
+}
+
+/* ──────────────────────────────────────
+   HELPERS
+────────────────────────────────────── */
+/* Header <th> carry legacy inline onclick="sortTable()"; DataTables (orderCellsTop)
+   now owns sorting, so this is intentionally a no-op to avoid ReferenceErrors. */
+function sortTable() { /* handled by DataTables */ }
+
+function monthToRange(ym) {
+    if (!ym) return { start: '', end: '' };
+    var parts   = ym.split('-');
+    var y       = parseInt(parts[0]);
+    var m       = parseInt(parts[1]);
+    var lastDay = new Date(y, m, 0).getDate();
+    var pad     = function (n) { return String(n).padStart(2, '0'); };
+    return { start: y + '-' + pad(m) + '-01', end: y + '-' + pad(m) + '-' + lastDay };
+}
+
+function escHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+</script>

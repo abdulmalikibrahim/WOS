@@ -82,8 +82,26 @@ $route['docking'] = 'Tabungan/docking';
 $route['docking_kap2'] = 'Tabungan/docking_kap2';
 $route['docking_truncate'] = 'Tabungan/docking_truncate';
 $route['clear_tabungan'] = 'Tabungan/clear_tabungan';
+$route['clear_tabungan_json'] = 'Tabungan/clear_tabungan_json';
 $route['heijunka_tone'] = 'Tabungan/heijunka_tone';
 $route['load_tabungan'] = 'Tabungan/load_tabungan';
+
+//COLOR CONTROL
+$route['color_control']               = 'Color_Control/index';
+$route['upload_color_control']        = 'Color_Control/upload';
+$route['get_plan_color_control']      = 'Color_Control/get_plan';
+$route['get_actual_color_control']    = 'Color_Control/get_actual';
+$route['clear_color_control']         = 'Color_Control/clear';
+$route['download_template_color_control'] = 'Color_Control/download_template';
+$route['get_models_color_control']     = 'Color_Control/get_models';
+
+//SUFFIX CONTROL
+$route['suffix_control']                    = 'Suffix_Control/index';
+$route['upload_suffix_control']             = 'Suffix_Control/upload';
+$route['get_data_suffix_control']           = 'Suffix_Control/get_data';
+$route['update_add_mdp_suffix_control']     = 'Suffix_Control/update_add_mdp';
+$route['clear_suffix_control']              = 'Suffix_Control/clear';
+$route['download_template_suffix_control']  = 'Suffix_Control/download_template';
 
 //VLT
 $route['import_vlt'] = 'Upload_VLT/import_vlt';
@@ -176,6 +194,19 @@ $route['get_summary_bank_vlt']  = 'Bank_VLT/get_summary_bank_vlt';
 $route['edit_bank_vlt']         = 'Bank_VLT/edit_bank_vlt';
 $route['save_edit_bank_vlt']    = 'Bank_VLT/save_edit_bank_vlt';
 $route['download_bank_vlt']     = 'Bank_VLT/download_bank_vlt';
+$route['download_csv_bank_vlt']  = 'Bank_VLT/download_csv';
+$route['datatable_bank_vlt']     = 'Bank_VLT/datatable_bank_vlt';
+$route['get_filter_options_bank_vlt'] = 'Bank_VLT/get_filter_options_bank_vlt';
 $route['get_reason_bank_vlt']   = 'Bank_VLT/get_reason_bank_vlt';
 $route['pick_bank_vlt']         = 'Bank_VLT/pick_bank_vlt';
 $route['use_bank_vlt']          = 'Bank_VLT/use_bank_vlt';
+
+//AOC
+$route['aoc']                   = 'C_Heijunka_WOS/aoc';
+$route['getAocData']            = 'C_Heijunka_WOS/getAocData';
+$route['getContinuationPoint']  = 'C_Heijunka_WOS/getContinuationPoint';
+$route['confirmAocUpdate']      = 'C_Heijunka_WOS/confirmAocUpdate';
+$route['getAocHistory']         = 'C_Heijunka_WOS/getAocHistory';
+$route['getAocHistoryDetail']   = 'C_Heijunka_WOS/getAocHistoryDetail';
+$route['downloadAocHistoryDetail'] = 'C_Heijunka_WOS/downloadAocHistoryDetail';
+$route['getOverflowPreview']    = 'C_Heijunka_WOS/getOverflowPreview';

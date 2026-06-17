@@ -1652,17 +1652,21 @@ class C_Heijunka_WOS extends Construct
             if($reupload == "1"){
                 $this->model->delete("checking_wos","kap = '$plant' AND pdd_input = '$pddInput'");
             }
-            $dataVIN = $this->model->gds("checking_wos","vin,pdd_input as pdd","vin != ''","result_array");
-            $vinList = array_column($dataVIN, 'vin');
+            $dataVIN = $this->model->gds("checking_wos","vin,model,pdd_input as pdd","vin != ''","result_array");
+            $vinModelList = array_map(function($r){ return $r['vin'].'|'.$r['model']; }, $dataVIN);
             $pddList = array_column($dataVIN, 'pdd');
-            
+
+            // Fetch all SAPNIK from bank_vlt for validation
+            $bankVltData = $this->model->gds("bank_vlt","sapnik","sapnik != ''","result_array");
+            $bankVltList = array_column($bankVltData, 'sapnik');
+
             foreach ($object->getWorksheetIterator() as $worksheet) {
                 $highestRow = ($worksheet->getHighestRow()-1);
                 for ($row = 2; $row <= $highestRow; $row++) {
 					$sapnik = $worksheet->getCellByColumnAndRow(3, $row)->getValue();
 					$suffix = $worksheet->getCellByColumnAndRow(10, $row)->getValue();
 					$admProdID = $worksheet->getCellByColumnAndRow(14, $row)->getValue();
-					$color = $worksheet->getCellByColumnAndRow(22, $row)->getValue();
+					$color = $worksheet->getCellByColumnAndRow(21, $row)->getValue();
 					$pdd = date("Y-m-d",strtotime($worksheet->getCellByColumnAndRow(16, $row)->getValue()));
 					$model = $worksheet->getCellByColumnAndRow(22, $row)->getValue();
                     $bulanPDD = substr($admProdID, 2, 2);
@@ -1679,8 +1683,9 @@ class C_Heijunka_WOS extends Construct
                         redirect('wos_duplicate_checking');
                     }
 
-                    //CHECK APAKAH ADA VIN YANG SAMA
-                    if(!in_array($sapnik,$vinList)){
+                    //CHECK APAKAH ADA VIN + MODEL YANG SAMA
+                    $vinModelKey = $sapnik.'|'.$model;
+                    if(!in_array($vinModelKey, $vinModelList)){
                         $temp_data[] = array(
                             'vin' => $sapnik,
                             'suffix' => $suffix,
@@ -1698,7 +1703,7 @@ class C_Heijunka_WOS extends Construct
                             'model' => $model,
                             'pdd' => $pdd,
                             'pdd_input' => $pddDb,
-                            'pdd_duplicate' => $pddList[array_search($sapnik,$vinList)],
+                            'pdd_duplicate' => $pddList[array_search($vinModelKey, $vinModelList)],
                             'kap' => 'KAP '.$plant,
                         );
                     }
@@ -2004,4 +2009,390 @@ class C_Heijunka_WOS extends Construct
         echo json_encode($fb);
 		die();
 	}
+
+    public function aoc()
+    {
+        $modelRows = $this->db->query("SELECT DISTINCT model FROM checking_wos WHERE model IS NOT NULL AND model != '' ORDER BY model")->result_array();
+        $data["modelList"] = array_column($modelRows, 'model');
+        $data["title"]      = "AOC";
+        $data["content"]    = "view/aoc";
+        $data["javascript"] = "aoc";
+        $this->load->view('layout/index', $data);
+    }
+
+    public function getAocData()
+    {
+        $kap    = $this->db->escape_str($this->input->get("kap"));
+        $result = $this->db->query(
+            "SELECT id, vin, suffix, color, model, pdd_input, tentative, firm, 'checking_wos' AS source
+             FROM (SELECT id, vin, suffix, color, model, pdd_input, tentative, firm
+                   FROM checking_wos WHERE kap = '$kap' ORDER BY id DESC LIMIT 5000) t
+             UNION ALL
+             SELECT id, vin, suffix, color, model, NULL AS pdd_input,
+                    CASE WHEN type = 'tentative' THEN order_date ELSE NULL END AS tentative,
+                    CASE WHEN type = 'firm'      THEN order_date ELSE NULL END AS firm,
+                    'temporary' AS source
+             FROM temporary_data_tentative WHERE kap = '$kap'
+             ORDER BY source ASC, id ASC"
+        )->result();
+        echo json_encode(["statusCode" => 200, "data" => $result]);
+        die();
+    }
+
+    public function getContinuationPoint()
+    {
+        $kap  = $this->db->escape_str($this->input->get("kap"));
+        $type = $this->input->get("type"); // tentative | firm
+
+        $rows = $this->db->query(
+            "SELECT id, tentative, firm
+             FROM (SELECT id, tentative, firm FROM checking_wos WHERE kap = '$kap' ORDER BY id DESC LIMIT 5000) t
+             ORDER BY id ASC"
+        )->result_array();
+
+        $last_firm_pos      = 0;
+        $last_tentative_pos = 0;
+        foreach ($rows as $i => $row) {
+            $pos = $i + 1;
+            if (!empty($row['firm']))      $last_firm_pos      = $pos;
+            if (!empty($row['tentative'])) $last_tentative_pos = $pos;
+        }
+
+        if ($type === "tentative") {
+            $start_pos = ($last_firm_pos < $last_tentative_pos)
+                ? $last_firm_pos + 1
+                : $last_tentative_pos + 1;
+        } else {
+            $start_pos = $last_firm_pos + 1;
+        }
+
+        $total     = count($rows);
+        $available = max(0, $total - $start_pos + 1);
+
+        echo json_encode([
+            "statusCode"         => 200,
+            "start_pos"          => $start_pos,
+            "last_firm_pos"      => $last_firm_pos,
+            "last_tentative_pos" => $last_tentative_pos,
+            "available"          => $available,
+            "total"              => $total,
+        ]);
+        die();
+    }
+
+    public function confirmAocUpdate()
+    {
+        $kap          = $this->input->post("kap");
+        $ids          = json_decode($this->input->post("ids"),          true) ?: [];
+        $overflow_ids = json_decode($this->input->post("overflow_ids"), true) ?: [];
+        $type         = $this->input->post("type");
+        $date         = $this->input->post("date");
+
+        if (!in_array($type, ["tentative", "firm"]) || empty($date)) {
+            echo json_encode(["statusCode" => 400, "msg" => "Input tidak valid"]);
+            die();
+        }
+
+        $summary          = [];
+        $overflow_inserted = 0;
+
+        // Regular rows → update checking_wos
+        if (!empty($ids)) {
+            $rows = $this->db->select("id, model")
+                ->from("checking_wos")
+                ->where_in("id", $ids)
+                ->get()->result_array();
+
+            $this->db->where_in("id", $ids);
+            $this->db->update("checking_wos", [$type => $date]);
+
+            foreach ($rows as $r) {
+                $m = ($r['model'] ?: '-');
+                $summary[$m] = ($summary[$m] ?? 0) + 1;
+            }
+        }
+
+        // Overflow rows → copy into temporary_data_tentative
+        if (!empty($overflow_ids)) {
+            $ovRows = $this->db->select("vin, suffix, color, model")
+                ->from("checking_wos")
+                ->where_in("id", $overflow_ids)
+                ->get()->result_array();
+
+            foreach ($ovRows as $r) {
+                $this->db->insert("temporary_data_tentative", [
+                    "vin"        => $r['vin'],
+                    "suffix"     => $r['suffix'],
+                    "color"      => $r['color'],
+                    "model"      => $r['model'],
+                    "kap"        => $kap,
+                    "order_date" => $date,
+                    "type"       => $type,
+                ]);
+                $m = ($r['model'] ?: '-');
+                $summary[$m] = ($summary[$m] ?? 0) + 1;
+                $overflow_inserted++;
+            }
+        }
+
+        ksort($summary);
+        echo json_encode([
+            "statusCode"        => 200,
+            "summary"           => $summary,
+            "updated"           => count($ids),
+            "overflow_inserted" => $overflow_inserted,
+        ]);
+        die();
+    }
+
+    public function getOverflowPreview()
+    {
+        $kap   = $this->db->escape_str($this->input->get("kap"));
+        $date  = $this->db->escape_str($this->input->get("date"));
+        $count = (int)$this->input->get("count");
+
+        $two_days_back = date("Y-m-d", strtotime($date . " -2 days"));
+
+        $models = json_decode($this->input->get("models"), true);
+
+        $this->db->select("id, vin, suffix, color, model, pdd_input, tentative, firm")
+            ->from("checking_wos")
+            ->where("kap", $kap)
+            ->where("pdd_input", $two_days_back);
+        if (is_array($models) && !empty($models)) {
+            $this->db->where_in("model", $models);
+        }
+        $result = $this->db->order_by("id", "ASC")
+            ->limit($count)
+            ->get()->result();
+
+        echo json_encode([
+            "statusCode" => 200,
+            "data"       => $result,
+            "pdd_used"   => $two_days_back,
+        ]);
+        die();
+    }
+
+    public function getAocHistory()
+    {
+        $kap = $this->db->escape_str($this->input->get("kap"));
+
+        // From checking_wos
+        $tentRows = $this->db->query(
+            "SELECT tentative AS order_date, COUNT(*) AS total
+             FROM checking_wos
+             WHERE kap = '$kap' AND tentative IS NOT NULL AND tentative != '0000-00-00'
+             GROUP BY tentative ORDER BY tentative DESC LIMIT 30"
+        )->result_array();
+
+        $firmRows = $this->db->query(
+            "SELECT firm AS order_date, COUNT(*) AS total
+             FROM checking_wos
+             WHERE kap = '$kap' AND firm IS NOT NULL AND firm != '0000-00-00'
+             GROUP BY firm ORDER BY firm DESC LIMIT 30"
+        )->result_array();
+
+        // From temporary_data_tentative
+        $tmpRows = $this->db->query(
+            "SELECT order_date, type, COUNT(*) AS total
+             FROM temporary_data_tentative
+             WHERE kap = '$kap'
+             GROUP BY order_date, type ORDER BY order_date DESC LIMIT 30"
+        )->result_array();
+
+        $merged = [];
+        foreach ($tentRows as $r) {
+            $d = $r['order_date'];
+            if (!isset($merged[$d])) $merged[$d] = ['order_date' => $d, 'total_tentative' => 0, 'total_firm' => 0];
+            $merged[$d]['total_tentative'] += (int)$r['total'];
+        }
+        foreach ($firmRows as $r) {
+            $d = $r['order_date'];
+            if (!isset($merged[$d])) $merged[$d] = ['order_date' => $d, 'total_tentative' => 0, 'total_firm' => 0];
+            $merged[$d]['total_firm'] += (int)$r['total'];
+        }
+        foreach ($tmpRows as $r) {
+            $d = $r['order_date'];
+            if (!isset($merged[$d])) $merged[$d] = ['order_date' => $d, 'total_tentative' => 0, 'total_firm' => 0];
+            if ($r['type'] === 'tentative') $merged[$d]['total_tentative'] += (int)$r['total'];
+            else                            $merged[$d]['total_firm']      += (int)$r['total'];
+        }
+
+        usort($merged, function ($a, $b) { return strcmp($b['order_date'], $a['order_date']); });
+
+        echo json_encode(["statusCode" => 200, "data" => array_values($merged)]);
+        die();
+    }
+
+    // Build per-model Tentative/Firm breakdown for one KAP + order date.
+    // Shared by the Detail Order modal (JSON) and the Excel download.
+    private function aocHistoryDetailRows($kap, $date)
+    {
+        // checking_wos
+        $cwRows = $this->db->query(
+            "SELECT model,
+                    SUM(CASE WHEN tentative = '$date' THEN 1 ELSE 0 END) AS total_tentative,
+                    SUM(CASE WHEN firm      = '$date' THEN 1 ELSE 0 END) AS total_firm
+             FROM checking_wos
+             WHERE kap = '$kap' AND (tentative = '$date' OR firm = '$date')
+             GROUP BY model"
+        )->result_array();
+
+        // temporary_data_tentative
+        $tmpRows = $this->db->query(
+            "SELECT model,
+                    SUM(CASE WHEN type = 'tentative' THEN 1 ELSE 0 END) AS total_tentative,
+                    SUM(CASE WHEN type = 'firm'      THEN 1 ELSE 0 END) AS total_firm
+             FROM temporary_data_tentative
+             WHERE kap = '$kap' AND order_date = '$date'
+             GROUP BY model"
+        )->result_array();
+
+        $merged = [];
+        foreach ($cwRows as $r) {
+            $m = $r['model'] ?: '-';
+            if (!isset($merged[$m])) $merged[$m] = ['model' => $m, 'total_tentative' => 0, 'total_firm' => 0];
+            $merged[$m]['total_tentative'] += (int)$r['total_tentative'];
+            $merged[$m]['total_firm']      += (int)$r['total_firm'];
+        }
+        foreach ($tmpRows as $r) {
+            $m = $r['model'] ?: '-';
+            if (!isset($merged[$m])) $merged[$m] = ['model' => $m, 'total_tentative' => 0, 'total_firm' => 0];
+            $merged[$m]['total_tentative'] += (int)$r['total_tentative'];
+            $merged[$m]['total_firm']      += (int)$r['total_firm'];
+        }
+
+        ksort($merged);
+        return array_values($merged);
+    }
+
+    public function getAocHistoryDetail()
+    {
+        $kap  = $this->db->escape_str($this->input->get("kap"));
+        $date = $this->db->escape_str($this->input->get("date"));
+
+        $data = $this->aocHistoryDetailRows($kap, $date);
+        echo json_encode(["statusCode" => 200, "data" => $data, "date" => $date]);
+        die();
+    }
+
+    public function downloadAocHistoryDetail()
+    {
+        $kap  = $this->db->escape_str($this->input->get("kap"));
+        $date = $this->db->escape_str($this->input->get("date"));
+
+        $rows = $this->aocHistoryDetailRows($kap, $date);
+
+        $this->load->library('excel');
+        $excel = new PHPExcel();
+        $sheet = $excel->setActiveSheetIndex(0);
+        $sheet->setTitle('Detail Order');
+
+        // Blue palette
+        $cBlueDark  = '1F4E78'; // title banner / total row
+        $cBlueMid   = '2E75B6'; // table header
+        $cBlueLight = 'D9E1F2'; // zebra stripe
+        $cBorder    = '8EAADB';
+        $white      = 'FFFFFF';
+
+        // ── Title banner (A1:D1) ─────────────────────────────────────────────
+        $sheet->mergeCells('A1:D1');
+        $sheet->setCellValue('A1', 'DETAIL ORDER AOC');
+        $sheet->getStyle('A1')->applyFromArray([
+            'font'      => ['bold' => true, 'size' => 16, 'color' => ['rgb' => $white]],
+            'fill'      => ['type' => PHPExcel_Style_Fill::FILL_SOLID, 'color' => ['rgb' => $cBlueDark]],
+            'alignment' => ['horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
+                            'vertical'   => PHPExcel_Style_Alignment::VERTICAL_CENTER],
+        ]);
+        $sheet->getRowDimension(1)->setRowHeight(28);
+
+        // ── Subtitle (A2:D2) ─────────────────────────────────────────────────
+        $sheet->mergeCells('A2:D2');
+        $sheet->setCellValue('A2', 'KAP ' . $kap . '   |   Tanggal Order: ' . $date);
+        $sheet->getStyle('A2')->applyFromArray([
+            'font'      => ['bold' => true, 'size' => 11, 'color' => ['rgb' => $white]],
+            'fill'      => ['type' => PHPExcel_Style_Fill::FILL_SOLID, 'color' => ['rgb' => $cBlueMid]],
+            'alignment' => ['horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
+                            'vertical'   => PHPExcel_Style_Alignment::VERTICAL_CENTER],
+        ]);
+        $sheet->getRowDimension(2)->setRowHeight(20);
+
+        // ── Table header (row 4) ─────────────────────────────────────────────
+        $headRow = 4;
+        $sheet->setCellValue('A' . $headRow, 'Model');
+        $sheet->setCellValue('B' . $headRow, 'Tentative');
+        $sheet->setCellValue('C' . $headRow, 'Firm');
+        $sheet->setCellValue('D' . $headRow, 'Total');
+        $sheet->getStyle("A{$headRow}:D{$headRow}")->applyFromArray([
+            'font'      => ['bold' => true, 'size' => 11, 'color' => ['rgb' => $white]],
+            'fill'      => ['type' => PHPExcel_Style_Fill::FILL_SOLID, 'color' => ['rgb' => $cBlueMid]],
+            'alignment' => ['horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
+                            'vertical'   => PHPExcel_Style_Alignment::VERTICAL_CENTER],
+        ]);
+        $sheet->getRowDimension($headRow)->setRowHeight(20);
+
+        // ── Data rows ────────────────────────────────────────────────────────
+        $rowNum   = $headRow + 1;
+        $firstRow = $rowNum;
+        $sumTent  = 0;
+        $sumFirm  = 0;
+        $stripe   = false;
+        foreach ($rows as $r) {
+            $tent = (int)$r['total_tentative'];
+            $firm = (int)$r['total_firm'];
+            $sheet->setCellValue('A' . $rowNum, $r['model']);
+            $sheet->setCellValue('B' . $rowNum, $tent);
+            $sheet->setCellValue('C' . $rowNum, $firm);
+            $sheet->setCellValue('D' . $rowNum, $tent + $firm);
+
+            if ($stripe) {
+                $sheet->getStyle("A{$rowNum}:D{$rowNum}")->getFill()
+                      ->setFillType(PHPExcel_Style_Fill::FILL_SOLID)
+                      ->getStartColor()->setRGB($cBlueLight);
+            }
+            $stripe = !$stripe;
+
+            $sumTent += $tent;
+            $sumFirm += $firm;
+            $rowNum++;
+        }
+
+        // ── Total row ────────────────────────────────────────────────────────
+        $sheet->setCellValue('A' . $rowNum, 'TOTAL');
+        $sheet->setCellValue('B' . $rowNum, $sumTent);
+        $sheet->setCellValue('C' . $rowNum, $sumFirm);
+        $sheet->setCellValue('D' . $rowNum, $sumTent + $sumFirm);
+        $sheet->getStyle("A{$rowNum}:D{$rowNum}")->applyFromArray([
+            'font' => ['bold' => true, 'size' => 11, 'color' => ['rgb' => $white]],
+            'fill' => ['type' => PHPExcel_Style_Fill::FILL_SOLID, 'color' => ['rgb' => $cBlueDark]],
+        ]);
+        $sheet->getRowDimension($rowNum)->setRowHeight(20);
+
+        // ── Borders & alignment across the whole table ───────────────────────
+        $sheet->getStyle("A{$headRow}:D{$rowNum}")->getBorders()->getAllBorders()
+              ->setBorderStyle(PHPExcel_Style_Border::BORDER_THIN)
+              ->getColor()->setRGB($cBorder);
+        // Model column left-aligned, numbers centered
+        $sheet->getStyle("A{$firstRow}:A{$rowNum}")->getAlignment()
+              ->setHorizontal(PHPExcel_Style_Alignment::HORIZONTAL_LEFT);
+        $sheet->getStyle("B{$firstRow}:D{$rowNum}")->getAlignment()
+              ->setHorizontal(PHPExcel_Style_Alignment::HORIZONTAL_CENTER);
+
+        // Column widths
+        $sheet->getColumnDimension('A')->setWidth(16);
+        $sheet->getColumnDimension('B')->setWidth(14);
+        $sheet->getColumnDimension('C')->setWidth(14);
+        $sheet->getColumnDimension('D')->setWidth(14);
+
+        $excel->setActiveSheetIndex(0);
+        if (ob_get_length()) ob_end_clean();
+        $filename = "Detail_Order_AOC_KAP{$kap}_{$date}";
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment; filename=' . $filename . '.xls');
+        header('Cache-Control: max-age=0');
+        $writer = PHPExcel_IOFactory::createWriter($excel, 'Excel5');
+        $writer->save('php://output');
+        exit();
+    }
 }

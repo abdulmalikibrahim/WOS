@@ -48,6 +48,15 @@ if($show){
                                 <li>
                                     <a href="<?=base_url("bank_vlt")?>" class="text-white font-weight-bold" style="text-decoration:none">1.1.7. Bank VLT</a>
                                 </li>
+                                <li>
+                                    <a href="<?=base_url("color_control")?>" class="text-white font-weight-bold" style="text-decoration:none">1.1.8. Color Control</a>
+                                </li>
+                                <li>
+                                    <a href="<?=base_url("suffix_control")?>" class="text-white font-weight-bold" style="text-decoration:none">1.1.9. Suffix Control</a>
+                                </li>
+                                <li>
+                                    <a href="<?=base_url("aoc")?>" class="text-white font-weight-bold" style="text-decoration:none">1.1.10. AOC</a>
+                                </li>
                             </ul>
                         </li>
                         <li class="mt-2 mb-2">

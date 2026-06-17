@@ -972,6 +972,19 @@ class Tabungan extends Construct
 		redirect("tabungan");
 	}
 
+	public function clear_tabungan_json()
+	{
+		header('Content-Type: application/json');
+		$kap = $this->input->post('kap');
+		$table_tabungan = ($kap === 'kap2') ? 'tabungan_vlt_kap2' : 'tabungan_vlt';
+
+		$this->model->delete($table_tabungan, 'sapnik !=');
+		$this->session->unset_userdata('tabungan_actual');
+
+		echo json_encode(['status' => 'ok', 'message' => 'Tabungan ' . strtoupper($kap) . ' berhasil dikosongkan']);
+		die();
+	}
+
 	public function load_tabungan()
 	{
 		if(empty($this->input->get("t")) || $this->input->get("t") == "kap1"){

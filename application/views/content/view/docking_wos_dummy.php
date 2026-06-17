@@ -26,9 +26,14 @@
 		</div>
         <div class="col-3 form-upload">
             <label class="text-danger mb-2" style="font-size:15px; font-weight:bold;">Ambil Tabungan VLT <span class="plant"></span></label>
-            <a id="btn-pick-bank-vlt" href="<?=base_url("pick_bank_vlt")?>" class="btn btn-info w-100" style="height:37px; line-height:1.6rem;">
-                <i class="fas fa-database mr-1"></i> Pilih dari Bank VLT
-            </a>
+            <div class="d-flex" style="gap:6px;">
+                <a id="btn-pick-bank-vlt" href="<?=base_url("pick_bank_vlt")?>" class="btn btn-info flex-grow-1" style="height:37px; line-height:1.6rem;">
+                    <i class="fas fa-database mr-1"></i> Pilih dari Bank VLT
+                </a>
+                <button type="button" class="btn btn-danger" style="height:37px;" title="Kosongkan Tabungan VLT" onclick="clearTabungan()">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
         </div>
         <div class="col-3 form-upload">
             <label class="text-danger mb-2" style="font-size:15px; font-weight:bold;">Upload PIS Dummy <span class="plant"></span></i></label>

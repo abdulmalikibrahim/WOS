@@ -8,6 +8,13 @@ var filteredData  = [];   // setelah column filter
 var sortColIndex  = -1;
 var sortDir       = 'asc';
 
+/* Filter dropdown (excel-like) per kolom — key = index kolom */
+var colFilters    = {};   // colIndex -> Set nilai yang dipilih (kosong = semua)
+
+/* Pagination (client-side) */
+var pageSize      = 10;   // -1 = tampilkan semua
+var currentPage   = 1;
+
 /* Kolom field sesuai urutan thead (index 0-27 + aksi) */
 var FIELDS = [
     'no',                    // 0
@@ -38,6 +45,7 @@ var FIELDS = [
     'model',                 // 25
     'already_process_label', // 26
     'plant',                 // 27
+    'pdd_proses',            // 28
 ];
 
 /* ──────────────────────────────────────
@@ -68,6 +76,7 @@ function loadSummary() {
         type: 'GET',
         data: params,
         dataType: 'json',
+        timeout: 15000, /* batas maksimal 15 detik */
         success: function (r) {
             $('#card-total').text(r.total.toLocaleString());
             $('#card-belum').text(r.belum_proses.toLocaleString());
@@ -87,10 +96,10 @@ function loadSummary() {
                                 '</tr>' +
                             '</thead>' +
                             '<tbody>' +
-                                '<tr class="text-center text-muted">' +
-                                    '<td style="border-left: none;">....</td>' +
-                                    '<td>....</td>' +
-                                    '<td style="border-right: none;">....</td>' +
+                                '<tr class="text-center">' +
+                                    '<td style="border-left: none; font-weight:600; color:#117a8b;">' + Number(m.plan_mdp || 0).toLocaleString() + '</td>' +
+                                    '<td style="font-weight:600; color:#117a8b;">' + Number(m.add_mdp || 0).toLocaleString() + '</td>' +
+                                    '<td style="border-right: none; font-weight:700; color:#0a5460;">' + Number(m.total_mdp || 0).toLocaleString() + '</td>' +
                                 '</tr>' +
                             '</tbody>' +
                         '</table>' +
@@ -129,30 +138,8 @@ var activeModelFilter = null;
 var activeStatusFilter = null;
 
 function applyCardFilters() {
-    filteredData = allData.filter(function(d) {
-        var matchModel = true;
-        var matchStatus = true;
-        
-        if (activeModelFilter !== null && activeModelFilter !== 'all') {
-            matchModel = (d.model === activeModelFilter);
-        }
-        if (activeStatusFilter !== null && activeStatusFilter !== 'all') {
-            matchStatus = (String(d.already_process) === String(activeStatusFilter));
-        }
-        return matchModel && matchStatus;
-    });
-    
-    // reset text inputs filters
-    $('#filter-row input').val('');
-    
-    if (activeModelFilter !== null || activeStatusFilter !== null) {
-        $('#btn-clear-filter').show();
-    } else {
-        $('#btn-clear-filter').hide();
-    }
-    
-    // reset sort state so sorting doesn't override current filtered layout improperly if sort was active
-    renderTable();
+    /* gabungkan filter kartu (model/status) dengan filter dropdown kolom */
+    applyAllFilters();
 }
 
 function filterByModelCard(model, status, el) {
@@ -182,13 +169,12 @@ function clearActiveFilters() {
     $('.card-filter-target, .model-active').removeClass('model-active card-active');
     activeModelFilter = null;
     activeStatusFilter = null;
-    
+
+    /* reset semua filter dropdown kolom */
+    resetAllColFilters();
+
     $('#btn-clear-filter').hide();
-    
-    // reset column text filters
-    $('#filter-row input').val('');
-    filteredData = allData.slice();
-    renderTable();
+    applyAllFilters();
 }
 
 /* ──────────────────────────────────────
@@ -225,6 +211,7 @@ function loadData() {
         type: 'GET',
         data: params,
         dataType: 'json',
+        timeout: 15000, /* batas maksimal 15 detik, lebih dari itu otomatis timeout */
         success: function (r) {
             if (r.status === 'success') {
                 /* tambahkan no urut dan label */
@@ -233,15 +220,17 @@ function loadData() {
                     d.already_process_label = d.already_process == 1 ? 'Sudah Proses' : 'Belum Proses';
                     return d;
                 });
-                /* reset column filters */
-                $('#filter-row input').val('');
-                filteredData = allData.slice();
-                renderTable();
+                /* reset filter dropdown per kolom (daftar nilai dihitung dinamis saat dibuka) */
+                resetAllColFilters();
+                applyAllFilters();
             }
         },
-        error: function (xhr) {
+        error: function (xhr, textStatus) {
+            var msg = textStatus === 'timeout'
+                ? 'Waktu muat data melebihi 15 detik (timeout). Silakan coba lagi atau persempit rentang bulan.'
+                : 'Gagal memuat data';
             $('#bvlt-tbody').html(
-                '<tr><td colspan="29"><div class="bvlt-loader" style="color:red"><i class="fas fa-exclamation-triangle"></i> Gagal memuat data</div></td></tr>'
+                '<tr><td colspan="29"><div class="bvlt-loader" style="color:red"><i class="fas fa-exclamation-triangle"></i> ' + msg + '</div></td></tr>'
             );
         }
     });
@@ -269,21 +258,29 @@ function tde(field, val, type) {
 }
 
 function renderTable() {
-    updateCounter();
-
     if (filteredData.length === 0) {
         $('#bvlt-tbody').html(
             '<tr><td colspan="29"><div class="empty-state"><i class="fas fa-inbox"></i><br>Tidak ada data</div></td></tr>'
         );
+        updateCounter();
+        renderPagination();
         return;
     }
 
+    /* hitung slice halaman saat ini */
+    var totalPages = (pageSize === -1) ? 1 : Math.max(1, Math.ceil(filteredData.length / pageSize));
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1)          currentPage = 1;
+
+    var startIdx = (pageSize === -1) ? 0 : (currentPage - 1) * pageSize;
+    var pageRows = (pageSize === -1) ? filteredData : filteredData.slice(startIdx, startIdx + pageSize);
+
     var html = '';
-    $.each(filteredData, function (i, d) {
+    $.each(pageRows, function (i, d) {
         var rowClass = d.already_process == 1 ? 'row-done' : '';
 
         html += '<tr class="' + rowClass + '" data-id="' + d.id + '">' +
-            '<td>' + (i + 1) + '</td>' +
+            '<td>' + (startIdx + i + 1) + '</td>' +
             tde('wos_material',       d.wos_material,       'text') +
             '<td class="td-left" style="white-space:normal;max-width:220px;">' + escHtml(d.wos_material_description || '') + '</td>' +
             tde('sapnik',             d.sapnik,             'text') +
@@ -317,11 +314,79 @@ function renderTable() {
     });
 
     $('#bvlt-tbody').html(html);
+    updateCounter();
+    renderPagination();
 }
 
 function updateCounter() {
-    $('#cnt-shown').text(filteredData.length.toLocaleString());
+    var total = filteredData.length;
+    var info;
+    if (total === 0) {
+        info = '0';
+    } else if (pageSize === -1) {
+        info = '1–' + total;
+    } else {
+        var startIdx = (currentPage - 1) * pageSize;
+        info = (startIdx + 1) + '–' + Math.min(startIdx + pageSize, total);
+    }
+    $('#page-info').text(info);
+    $('#cnt-shown').text(total.toLocaleString());
     $('#cnt-total').text(allData.length.toLocaleString());
+}
+
+/* ──────────────────────────────────────
+   PAGINATION
+────────────────────────────────────── */
+function renderPagination() {
+    var $pg = $('#bvlt-pagination');
+    if (!$pg.length) return;
+
+    var total      = filteredData.length;
+    var totalPages = (pageSize === -1) ? 1 : Math.max(1, Math.ceil(total / pageSize));
+
+    if (totalPages <= 1) { $pg.empty(); return; }
+
+    function item(label, page, disabled, active) {
+        var cls = 'page-item' + (disabled ? ' disabled' : '') + (active ? ' active' : '');
+        var onclick = (disabled || active) ? '' : ' onclick="goToPage(' + page + ')"';
+        return '<li class="' + cls + '"><a class="page-link" href="javascript:void(0)"' + onclick + '>' + label + '</a></li>';
+    }
+
+    /* jendela nomor halaman: maksimal 5 sekitar halaman aktif */
+    var win   = 2;
+    var first = Math.max(1, currentPage - win);
+    var last  = Math.min(totalPages, currentPage + win);
+
+    var html = item('«', 1, currentPage === 1, false) +
+               item('‹', currentPage - 1, currentPage === 1, false);
+
+    if (first > 1) {
+        html += item('1', 1, false, false);
+        if (first > 2) html += '<li class="page-item disabled"><span class="page-link">…</span></li>';
+    }
+    for (var p = first; p <= last; p++) {
+        html += item(p, p, false, p === currentPage);
+    }
+    if (last < totalPages) {
+        if (last < totalPages - 1) html += '<li class="page-item disabled"><span class="page-link">…</span></li>';
+        html += item(totalPages, totalPages, false, false);
+    }
+
+    html += item('›', currentPage + 1, currentPage === totalPages, false) +
+            item('»', totalPages, currentPage === totalPages, false);
+
+    $pg.html(html);
+}
+
+function goToPage(p) {
+    currentPage = p;
+    renderTable();
+}
+
+function changePageSize(val) {
+    pageSize    = parseInt(val, 10);
+    currentPage = 1;
+    renderTable();
 }
 
 function reasonChange(id) {
@@ -363,29 +428,192 @@ function reasonChange(id) {
     });
 }
 /* ──────────────────────────────────────
-   COLUMN FILTER (client-side)
+   COLUMN FILTER (excel-like checkbox dropdown)
 ────────────────────────────────────── */
-function applyColFilter() {
-    var filters = {};
-    $('#filter-row input').each(function () {
-        var col = parseInt($(this).data('col'));
-        var val = $(this).val().toLowerCase().trim();
-        if (val) filters[col] = val;
-    });
+var FILTER_COLS_MIN = 1, FILTER_COLS_MAX = 28;   // kolom yang punya filter
 
-    filteredData = allData.filter(function (d) {
-        for (var col in filters) {
-            var field    = FIELDS[col];
-            var cellVal  = (d[field] || '').toString().toLowerCase();
-            if (cellVal.indexOf(filters[col]) === -1) return false;
+/* true jika baris `d` lolos semua filter KECUALI filter kolom `exceptCol`.
+   exceptCol = -1 berarti memeriksa semua filter (tanpa pengecualian). */
+function rowPassesExcept(d, exceptCol) {
+    /* filter kartu: model */
+    if (activeModelFilter !== null && activeModelFilter !== 'all' && d.model !== activeModelFilter) return false;
+    /* filter kartu: status */
+    if (activeStatusFilter !== null && activeStatusFilter !== 'all' &&
+        String(d.already_process) !== String(activeStatusFilter)) return false;
+    /* filter dropdown kolom (lewati kolom yang dikecualikan) */
+    for (var col in colFilters) {
+        if (parseInt(col, 10) === exceptCol) continue;
+        var set = colFilters[col];
+        if (set && set.size > 0) {
+            var field = FIELDS[col];
+            var v = (d[field] === null || d[field] === undefined) ? '' : String(d[field]);
+            if (!set.has(v)) return false;
         }
-        return true;
-    });
+    }
+    return true;
+}
 
-    /* re-apply current sort */
+/* Terapkan SEMUA filter (kartu model/status + dropdown kolom) → filteredData */
+function applyAllFilters() {
+    filteredData = allData.filter(function (d) { return rowPassesExcept(d, -1); });
+
+    /* tampilkan tombol Clear Filter bila ada filter aktif */
+    var anyCol = Object.keys(colFilters).some(function (c) { return colFilters[c] && colFilters[c].size > 0; });
+    if (activeModelFilter !== null || activeStatusFilter !== null || anyCol) {
+        $('#btn-clear-filter').show();
+    } else {
+        $('#btn-clear-filter').hide();
+    }
+
     if (sortColIndex >= 0) doSort(sortColIndex, sortDir, false);
+    currentPage = 1;
     renderTable();
 }
+/* alias kompatibilitas */
+function applyColFilter() { applyAllFilters(); }
+
+/* Hitung daftar nilai unik untuk kolom `col` berdasarkan data yang sudah
+   difilter oleh SEMUA filter lain (kartu + kolom lain), kecuali filter kolom
+   itu sendiri → daftar dropdown jadi bertingkat (cascading) seperti Excel. */
+function valuesForColumn(col) {
+    var field = FIELDS[col];
+    var seen  = {}, arr = [];
+    for (var i = 0; i < allData.length; i++) {
+        var d = allData[i];
+        if (!rowPassesExcept(d, col)) continue;
+        var raw = d[field];
+        var v   = (raw === null || raw === undefined) ? '' : String(raw);
+        if (v !== '' && !seen[v]) { seen[v] = 1; arr.push(v); }
+    }
+    arr.sort(function (a, b) {
+        var na = parseFloat(a), nb = parseFloat(b);
+        if (!isNaN(na) && !isNaN(nb) && a !== '' && b !== '') return na - nb;
+        return a < b ? -1 : (a > b ? 1 : 0);
+    });
+    return arr;
+}
+
+/* Reset semua filter dropdown + tombolnya */
+function resetAllColFilters() {
+    colFilters = {};
+    for (var c = FILTER_COLS_MIN; c <= FILTER_COLS_MAX; c++) {
+        colFilters[c] = new Set();
+        updateDropdownBtn(c);
+    }
+    document.querySelectorAll('.dt-dd-panel').forEach(function (p) { p.style.display = 'none'; });
+}
+
+/* Buka/tutup panel dropdown */
+function toggleDropdown(event, col) {
+    event.stopPropagation();
+    var panel = document.getElementById('dd-panel-' + col);
+    var btn   = document.getElementById('dd-btn-'   + col);
+    var isOpen = panel.style.display !== 'none';
+
+    document.querySelectorAll('.dt-dd-panel').forEach(function (p) { p.style.display = 'none'; });
+
+    if (!isOpen) {
+        buildDropdownPanel(col);
+        panel.style.display = 'block';
+        var rect   = btn.getBoundingClientRect();
+        var panelW = 240;
+        var left   = rect.left;
+        if (left + panelW > window.innerWidth) left = window.innerWidth - panelW - 12;
+        if (left < 4) left = 4;
+        panel.style.top  = (rect.bottom + 3) + 'px';
+        panel.style.left = left + 'px';
+    }
+}
+
+function buildDropdownPanel(col) {
+    var vals       = valuesForColumn(col);
+    var selected   = colFilters[col] || new Set();
+    var allChecked = selected.size === 0;
+
+    var itemsHtml = vals.length
+        ? vals.map(function (v) {
+            var checked = (allChecked || selected.has(v)) ? 'checked' : '';
+            return '<div class="dt-dd-item"><label style="cursor:pointer;margin:0;display:flex;align-items:center;gap:6px;width:100%;">' +
+                   '<input type="checkbox" class="dd-chk" value="' + escHtml(v) + '" ' + checked + '>' +
+                   '<span title="' + escHtml(v) + '">' + escHtml(v) + '</span></label></div>';
+          }).join('')
+        : '<div class="text-muted py-2 text-center" style="font-size:8pt;">Tidak ada data</div>';
+
+    var panel = document.getElementById('dd-panel-' + col);
+    panel.innerHTML =
+        '<div class="dt-dd-search"><input type="text" class="form-control form-control-sm" placeholder="Cari nilai..." oninput="ddSearch(this,' + col + ')"></div>' +
+        '<div class="dt-dd-select-all" onclick="ddClickSelectAll(' + col + ')"><input type="checkbox" id="dd-all-' + col + '" ' + (allChecked ? 'checked' : '') + ' onclick="event.stopPropagation(); ddToggleAll(this,' + col + ')"><span>Pilih Semua</span></div>' +
+        '<div class="dt-dd-list" id="dd-list-' + col + '">' + itemsHtml + '</div>' +
+        '<div class="dt-dd-footer"><button class="btn btn-sm btn-primary" onclick="applyExcelFilter(' + col + ')">Terapkan</button><button class="btn btn-sm btn-outline-secondary" onclick="resetExcelFilter(' + col + ')">Reset</button></div>';
+
+    panel.addEventListener('click', function (e) { e.stopPropagation(); });
+    document.getElementById('dd-list-' + col).addEventListener('change', function () { syncDdSelectAll(col); });
+}
+
+function ddSearch(input, col) {
+    var q = input.value.toLowerCase();
+    document.querySelectorAll('#dd-list-' + col + ' .dt-dd-item').forEach(function (item) {
+        item.classList.toggle('dd-hidden', item.querySelector('span').textContent.toLowerCase().indexOf(q) === -1);
+    });
+    syncDdSelectAll(col);
+}
+
+function ddClickSelectAll(col) {
+    var chk = document.getElementById('dd-all-' + col);
+    chk.checked = !chk.checked;
+    ddToggleAll(chk, col);
+}
+
+function ddToggleAll(chk, col) {
+    document.querySelectorAll('#dd-list-' + col + ' .dt-dd-item:not(.dd-hidden) .dd-chk').forEach(function (cb) {
+        cb.checked = chk.checked;
+    });
+    syncDdSelectAll(col);
+}
+
+function syncDdSelectAll(col) {
+    var all     = document.querySelectorAll('#dd-list-' + col + ' .dt-dd-item:not(.dd-hidden) .dd-chk');
+    var checked = document.querySelectorAll('#dd-list-' + col + ' .dt-dd-item:not(.dd-hidden) .dd-chk:checked');
+    var allChk  = document.getElementById('dd-all-' + col);
+    if (!allChk) return;
+    allChk.checked       = all.length > 0 && checked.length === all.length;
+    allChk.indeterminate = checked.length > 0 && checked.length < all.length;
+}
+
+function applyExcelFilter(col) {
+    var checked  = Array.prototype.slice.call(document.querySelectorAll('#dd-list-' + col + ' .dd-chk:checked'));
+    var totalChk = document.querySelectorAll('#dd-list-' + col + ' .dd-chk').length;
+    colFilters[col] = new Set();
+    /* kalau semua nilai yang tampil tercentang → anggap "tanpa filter" */
+    if (checked.length < totalChk) {
+        checked.forEach(function (cb) { colFilters[col].add(cb.value); });
+    }
+    updateDropdownBtn(col);
+    document.getElementById('dd-panel-' + col).style.display = 'none';
+    applyAllFilters();
+}
+
+function resetExcelFilter(col) {
+    colFilters[col] = new Set();
+    updateDropdownBtn(col);
+    document.getElementById('dd-panel-' + col).style.display = 'none';
+    applyAllFilters();
+}
+
+function updateDropdownBtn(col) {
+    var btn = document.getElementById('dd-btn-' + col);
+    if (!btn) return;
+    var n = (colFilters[col] && colFilters[col].size) || 0;
+    btn.innerHTML = n === 0
+        ? 'Semua <i class="fas fa-chevron-down fa-xs"></i>'
+        : n + ' dipilih <i class="fas fa-filter fa-xs"></i>';
+    btn.classList.toggle('filtered', n > 0);
+}
+
+/* klik di luar panel → tutup semua */
+document.addEventListener('click', function () {
+    document.querySelectorAll('.dt-dd-panel').forEach(function (p) { p.style.display = 'none'; });
+});
 
 /* ──────────────────────────────────────
    SORT
@@ -404,6 +632,7 @@ function sortTable(colIdx) {
     $('#header-row th[data-col="' + colIdx + '"]').addClass(sortDir);
 
     doSort(colIdx, sortDir, true);
+    currentPage = 1;
     renderTable();
 }
 
@@ -433,7 +662,7 @@ function resetFilter() {
     var m   = String(now.getMonth() + 1).padStart(2, '0');
     $('#f-month').val(y + '-' + m);
     $('#f-status').val('');
-    $('#filter-row input').val('');
+    resetAllColFilters();
     sortColIndex = -1;
     sortDir      = 'asc';
     $('#header-row th').removeClass('asc desc');

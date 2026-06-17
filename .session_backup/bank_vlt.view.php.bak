@@ -1,3 +1,4 @@
+<link rel="stylesheet" href="<?= base_url('assets/plugins/datatables/dataTables.bootstrap4.min.css') ?>">
 <style>
     /* Classic UI Enhancements for Bank VLT */
     .border-left-primary { border-left: .25rem solid #4e73df !important; }
@@ -74,7 +75,7 @@
     .bvlt-table thead th.desc .sort-icon::before { content: "▼"; opacity: 1; }
     .bvlt-table thead th:not(.asc):not(.desc) .sort-icon::before { content: "⇅"; }
 
-    .bvlt-table thead tr.filter-row th input {
+    .bvlt-table thead tr.filter-row th input:not([type=checkbox]) {
         width: 100%;
         border: 1px solid #ccc;
         border-radius: 3px;
@@ -150,14 +151,24 @@
     .spin { animation: spin 1s linear infinite; }
     @keyframes spin { 100% { transform: rotate(360deg); } }
 
+    /* DataTables overrides */
+    .dataTables_wrapper .dataTables_paginate { padding-top: 0; }
+    .dataTables_wrapper .dataTables_paginate .paginate_button { padding: 0; }
+    .dataTables_wrapper .dataTables_info   { font-size: .78rem; color: #666; padding-top: 0; }
+    .dataTables_wrapper .dataTables_length { font-size: .78rem; }
+    .dataTables_wrapper .dataTables_length label { margin-bottom: 0; display: flex; align-items: center; gap: 6px; }
+    .dataTables_wrapper .dataTables_length select { padding: 2px 6px; min-width: 70px; }
+    div.dataTables_processing { background: rgba(255,255,255,.8); font-weight: 600; color: #1565C0; }
+
     /* ── Excel-like dropdown filter (header) ── */
     .dt-dropdown { position: relative; display: block; }
+
     .dt-dd-btn {
         width: 100%; font-size: .68rem; padding: 3px 6px;
         border: 1px solid #ced4da; border-radius: 3px;
-        background: #fff; cursor: pointer;
+        background: #fff; cursor: pointer; color: #333;
         display: flex; align-items: center; justify-content: space-between; gap: 4px;
-        white-space: nowrap; line-height: 1.4; color: #333;
+        white-space: nowrap; line-height: 1.4;
     }
     .dt-dd-btn:hover { border-color: #adb5bd; background: #f8f9fa; }
     .dt-dd-btn.filtered { border-color: #0056b3; background: #cce5ff; color: #004085; font-weight: bold; }
@@ -168,19 +179,19 @@
         box-shadow: 0 6px 20px rgba(0,0,0,0.15); padding: 8px;
         font-size: .72rem; text-align: left; cursor: default;
     }
-    /* override aturan lama .filter-row th input agar checkbox dropdown tidak melebar */
-    .dt-dd-panel input[type=checkbox] {
-        width: auto !important; min-width: 0 !important;
-        flex: 0 0 auto; margin: 0;
-    }
+    .dt-dd-panel input[type=checkbox] { width: auto; min-width: 0; margin: 0; }
+    .dt-dd-panel label { font-weight: normal; }
+
     .dt-dd-search { margin-bottom: 6px; }
     .dt-dd-search input { font-size: .7rem !important; width: 100%; }
+
     .dt-dd-select-all {
         display: flex; align-items: center; gap: 6px;
         padding: 3px 4px 6px; border-bottom: 1px solid #dee2e6; margin-bottom: 4px;
         cursor: pointer; font-weight: bold; user-select: none;
     }
     .dt-dd-select-all input[type=checkbox] { margin: 0; cursor: pointer; }
+
     .dt-dd-list { max-height: 185px; overflow-y: auto; margin-bottom: 7px; }
     .dt-dd-item {
         display: flex; align-items: center; gap: 7px;
@@ -190,13 +201,13 @@
     .dt-dd-item:hover { background: #eef3ff; }
     .dt-dd-item.dd-hidden { display: none; }
     .dt-dd-item input[type=checkbox] { margin: 0; flex-shrink: 0; cursor: pointer; }
-    .dt-dd-item span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dt-dd-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
     .dt-dd-footer {
         display: flex; gap: 5px; justify-content: flex-end;
         border-top: 1px solid #dee2e6; padding-top: 6px;
     }
     .dt-dd-footer .btn { font-size: .68rem; padding: 2px 10px; }
-
 </style>
 
 <div class="row justify-content-center">
@@ -305,22 +316,9 @@
                 </div>
             </div>
 
-            <!-- Page length -->
-            <div class="d-flex align-items-center mb-2" style="gap:6px; font-size:.8rem;">
-                <span>Tampilkan</span>
-                <select id="page-size" class="form-control form-control-sm" style="width:75px;" onchange="changePageSize(this.value)">
-                    <option value="10">10</option>
-                    <option value="25">25</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                    <option value="-1">Semua</option>
-                </select>
-                <span>data</span>
-            </div>
-
             <!-- Table -->
-            <div class="tableFixHead" style="border: 1px solid #dee2e6;">
-                <table class="table table-bordered table-hover table-sm mb-0 bvlt-table" id="bvlt-table">
+            <div style="overflow-x:auto;">
+                <table class="table table-bordered table-hover table-sm mb-0 bvlt-table" id="bvlt-table" style="width:100%">
                     <thead>
                         <tr id="header-row">
                             <th onclick="sortTable(0)"  data-col="0"  style="min-width:40px">No <span class="sort-icon"></span></th>
@@ -356,15 +354,27 @@
                         </tr>
                         <tr class="filter-row" id="filter-row">
                             <th></th>
-                            <?php for ($c = 1; $c <= 28; $c++): ?>
+                            <?php
+                            $bvlt_filter_cols = [
+                                'wos_material', 'wos_material_description', 'sapnik', 'sap_material', 'engine_model',
+                                'engine_prefix', 'engine_number', 'plant_excel', 'chassis_number', 'lot_code',
+                                'lot_number', 'katashiki', 'katashiki_suffix', 'adm_production_id', 'tam_production_id',
+                                'plan_delivery_date', 'plan_jig_in_date', 'wos_release_date', 'sapwos_des', 'location',
+                                'color_code', 'ed', 'order_column', 'destination', 'model',
+                            ];
+                            foreach ($bvlt_filter_cols as $col):
+                            ?>
                             <th>
                                 <div class="dt-dropdown">
-                                    <button class="dt-dd-btn" id="dd-btn-<?= $c ?>" type="button" onclick="toggleDropdown(event,<?= $c ?>)">Semua <i class="fas fa-chevron-down fa-xs"></i></button>
-                                    <div class="dt-dd-panel" id="dd-panel-<?= $c ?>" style="display:none;"></div>
+                                    <button class="dt-dd-btn" id="dd-btn-<?= $col ?>" type="button" onclick="toggleDropdown(event,'<?= $col ?>')">Semua <i class="fas fa-chevron-down fa-xs"></i></button>
+                                    <div class="dt-dd-panel" id="dd-panel-<?= $col ?>" style="display:none;"></div>
                                 </div>
                             </th>
-                            <?php endfor; ?>
-                            <th></th>
+                            <?php endforeach; ?>
+                            <th></th><!-- status -->
+                            <th></th><!-- plant -->
+                            <th></th><!-- pdd -->
+                            <th></th><!-- action -->
                         </tr>
                     </thead>
                     <tbody id="bvlt-tbody">
@@ -375,14 +385,6 @@
                         </tr>
                     </tbody>
                 </table>
-            </div>
-            <div class="mt-2 d-flex flex-wrap align-items-center justify-content-between" style="gap:10px;">
-                <span class="data-counter font-weight-bold" style="font-size:.8rem;">
-                    Menampilkan <span id="page-info" class="text-primary">0</span>
-                    dari <span id="cnt-shown" class="text-primary">0</span> data
-                    <span class="text-muted">(total <span id="cnt-total">0</span>)</span>
-                </span>
-                <nav><ul class="pagination pagination-sm mb-0" id="bvlt-pagination"></ul></nav>
             </div>
         </div>
     </div>

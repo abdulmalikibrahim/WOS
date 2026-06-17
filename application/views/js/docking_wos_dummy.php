@@ -101,6 +101,36 @@
 	function docking() {
         loading("Sedang docking...", "");
 	}
+
+    function clearTabungan() {
+        const kap = sessionStorage.getItem('kap') || '';
+        if (!kap) {
+            Swal.fire('Perhatian', 'Silahkan pilih Plant terlebih dahulu', 'warning');
+            return;
+        }
+        Swal.fire({
+            title: 'Kosongkan Tabungan?',
+            html: 'Semua data tabungan <b>' + kap.toUpperCase() + '</b> akan dihapus.<br>Tindakan ini tidak bisa dibatalkan.',
+            iconHtml: '<i class="fas fa-question" style="font-size:2.5rem;color:#6c757d;"></i>',
+            iconColor: 'transparent',
+            showCancelButton: true,
+            confirmButtonText: '<i class="fas fa-trash mr-1"></i>Ya, Kosongkan',
+            cancelButtonText: 'Batal',
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+        }).then(result => {
+            if (!result.isConfirmed) return;
+            Swal.fire({ title: 'Memproses...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            $.post('<?=base_url("clear_tabungan_json")?>', { kap: kap }, function (res) {
+                if (res.status === 'ok') {
+                    Swal.fire({ icon: 'success', title: 'Berhasil', text: res.message, timer: 1800, showConfirmButton: false })
+                        .then(() => location.reload());
+                } else {
+                    Swal.fire('Gagal', res.message || 'Terjadi kesalahan', 'error');
+                }
+            }, 'json').fail(() => Swal.fire('Error', 'Gagal koneksi ke server', 'error'));
+        });
+    }
     $("#upload-excel-pis-kap2").change(function() {
         loading("Sedang Upload...", "");
         fileupload = document.getElementById("upload-excel-pis-kap2");

@@ -162,37 +162,52 @@ class Bank_VLT extends Construct
 
             $dup_info = '';
             if (!empty($duplicate_sapnik)) {
-                $dup_list = "<ol style='margin:0' class='text-left m-2'><li>". implode('<li>', $duplicate_sapnik) . '</li></ol>';
-                $dup_info = "<br><br><b>" . count($duplicate_sapnik) . " SAPNIK duplikat ditolak:</b><br><small style='word-break:break-all;'>" . $dup_list . "</small>";
+                $dup_list = "<ol style='margin:0;text-align:left;' class='m-2'><li>" . implode('</li><li>', $duplicate_sapnik) . "</li></ol>";
+                $dup_info = "<br><br><b>" . count($duplicate_sapnik) . " VIN sudah ada di database (tidak diimport):</b>"
+                          . "<div style='max-height:200px;overflow-y:auto;border:1px solid #f5c6cb;border-radius:4px;background:#fff8f8;margin-top:4px;'><small>" . $dup_list . "</small></div>";
             }
 
-            if (!empty($new_data) && empty($dup_info)) {
+            $insert = false;
+            if (!empty($new_data)) {
                 $insert = $this->model->insert_batch("bank_vlt", $new_data);
-            } else {
-                $insert = false;
             }
 
-            if (!empty($new_data) && $insert) {
+            if ($insert && empty($duplicate_sapnik)) {
+                // Semua berhasil, tidak ada duplikat
                 $this->voice("sukses.mp3");
                 $this->swal_custom_icon(
                     "Sukses",
-                    "Upload Bank VLT berhasil!<br><b>" . count($new_data) . " data</b> berhasil diimport." . $dup_info,
+                    "Upload Bank VLT berhasil!<br><b>" . count($new_data) . " VIN</b> berhasil diimport.",
+                    base_url('assets/images/happy.png'),
+                    "",
+                    "true"
+                );
+            } elseif ($insert && !empty($duplicate_sapnik)) {
+                // Sebagian berhasil, sebagian duplikat
+                $this->voice("sukses.mp3");
+                $this->swal_custom_icon(
+                    "Sebagian Berhasil",
+                    "<b>" . count($new_data) . " VIN</b> berhasil diimport.<br>"
+                    . "<span class='text-danger'>" . count($duplicate_sapnik) . " VIN ditolak karena sudah ada.</span>"
+                    . $dup_info,
                     base_url('assets/images/happy.png'),
                     "",
                     "true"
                 );
             } elseif (empty($new_data) && !empty($duplicate_sapnik)) {
+                // Semua duplikat, tidak ada yang masuk
                 $this->voice("gagal.mp3");
                 $this->swal_custom_icon(
-                    "Peringatan",
-                    "Semua data ditolak karena SAPNIK sudah ada di database." . $dup_info,
+                    "Ditolak",
+                    "Semua <b>" . count($duplicate_sapnik) . " VIN</b> sudah ada di database. Tidak ada data yang diimport."
+                    . $dup_info,
                     base_url('assets/images/emot-sedih.jpg'),
                     "rounded-circle",
                     "true"
                 );
             } else {
                 $this->voice("gagal.mp3");
-                $this->swal_custom_icon("Gagal", "Gagal menyimpan data ke database" . $dup_info, base_url('assets/images/emot-sedih.jpg'), "rounded-circle", "true");
+                $this->swal_custom_icon("Gagal", "Gagal menyimpan data ke database." . $dup_info, base_url('assets/images/emot-sedih.jpg'), "rounded-circle", "true");
             }
         } else {
             $this->voice("gagal.mp3");
@@ -221,6 +236,7 @@ class Bank_VLT extends Construct
         if ($already_process !== '' && $already_process !== NULL && $already_process !== false) {
             if (intval($already_process) === 0) {
                 $conditions[] = "c.vin IS NULL";
+                $conditions[] = "b.sapnik NOT IN (SELECT sapnik FROM tabungan_vlt UNION SELECT sapnik FROM tabungan_vlt_kap2)";
             } else {
                 $conditions[] = "c.vin IS NOT NULL";
             }
@@ -323,38 +339,13 @@ class Bank_VLT extends Construct
              ORDER BY b.model ASC"
         )->result();
 
-        // Plan/Add/Total MDP dari suffix_control per model_code (periode = bulan/tahun terpilih)
-        $mdp_map = [];
-        if (!empty($month) && !empty($year)) {
-            $mm = intval($month);
-            $yy = intval($year);
-            $mdp_rows = $this->db->query(
-                "SELECT model_code,
-                        SUM(plan_mdp) AS plan_mdp,
-                        SUM(add_mdp)  AS add_mdp
-                 FROM suffix_control
-                 WHERE YEAR(periode) = {$yy} AND MONTH(periode) = {$mm}
-                 GROUP BY model_code"
-            )->result();
-            foreach ($mdp_rows as $mr) {
-                $mdp_map[$mr->model_code] = [
-                    'plan_mdp' => (int)$mr->plan_mdp,
-                    'add_mdp'  => (int)$mr->add_mdp,
-                ];
-            }
-        }
-
         $per_model = [];
         foreach ($per_model_rows as $m) {
-            $mdp = $mdp_map[$m->model] ?? ['plan_mdp' => 0, 'add_mdp' => 0];
             $per_model[] = [
                 'model'       => $m->model,
                 'total'       => (int)$m->total,
                 'sudah_proses'=> (int)$m->sudah_proses,
                 'belum_proses'=> (int)$m->total - (int)$m->sudah_proses,
-                'plan_mdp'    => $mdp['plan_mdp'],
-                'add_mdp'     => $mdp['add_mdp'],
-                'total_mdp'   => $mdp['plan_mdp'] + $mdp['add_mdp'],
             ];
         }
 
@@ -507,15 +498,13 @@ class Bank_VLT extends Construct
             die();
         }
 
-        // Clear existing tabungan for this KAP
-        $this->model->delete($table_tabungan, 'sapnik !=');
+        $inserted = 0;
+        $updated  = 0;
 
-        $insert_data = [];
         foreach ($rows as $r) {
-            $insert_data[] = [
+            $fields = [
                 'wos_material'             => $r['wos_material'],
                 'wos_material_description' => $r['wos_material_description'],
-                'sapnik'                   => $r['sapnik'],
                 'sap_material'             => $r['sap_material'],
                 'engine_model'             => $r['engine_model'],
                 'engine_prefix'            => $r['engine_prefix'],
@@ -538,21 +527,356 @@ class Bank_VLT extends Construct
                 'order_column'             => $r['order_column'],
                 'destination'              => $r['destination'],
             ];
+
+            $exists = $this->db->select('sapnik')->from($table_tabungan)
+                                ->where('sapnik', $r['sapnik'])->get()->row();
+
+            if ($exists) {
+                $this->db->where('sapnik', $r['sapnik'])->update($table_tabungan, $fields);
+                $updated++;
+            } else {
+                $fields['sapnik'] = $r['sapnik'];
+                $this->db->insert($table_tabungan, $fields);
+                $inserted++;
+            }
         }
 
-        $insert = $this->model->insert_batch($table_tabungan, $insert_data);
-
-        if ($insert) {
-            // Set session so docking page shows tabungan is ready
-            $this->session->set_userdata(['tabungan_actual' => 'YES']);
-            echo json_encode([
-                'status'  => 'ok',
-                'message' => count($insert_data) . ' data berhasil dipindahkan ke Tabungan VLT ' . strtoupper($kap)
-            ]);
-        } else {
-            echo json_encode(['status' => 'error', 'message' => 'Gagal menyimpan data ke tabungan']);
-        }
+        $this->session->set_userdata(['tabungan_actual' => 'YES']);
+        echo json_encode([
+            'status'  => 'ok',
+            'message' => count($rows) . ' data berhasil diproses ke Tabungan VLT ' . strtoupper($kap) .
+                         " ({$inserted} ditambah, {$updated} diupdate)"
+        ]);
         die();
+    }
+
+    public function datatable_bank_vlt()
+    {
+        header('Content-Type: application/json');
+
+        $draw       = (int)$this->input->post('draw');
+        $start      = max(0, (int)$this->input->post('start'));
+        $length     = max(1, min(500, (int)$this->input->post('length')));
+        $order_col  = (int)$this->input->post('order_col');
+        $order_dir  = $this->input->post('order_dir') === 'desc' ? 'DESC' : 'ASC';
+
+        // Date / status filters
+        $start_date      = $this->input->post('start_date');
+        $end_date        = $this->input->post('end_date');
+        $already_process = $this->input->post('already_process');
+        $model_filter    = $this->input->post('model_filter');
+
+        // Searchable column → DB field map
+        $search_fields = [
+            'wos_material'             => 'b.wos_material',
+            'wos_material_description' => 'b.wos_material_description',
+            'sapnik'                   => 'b.sapnik',
+            'sap_material'             => 'b.sap_material',
+            'engine_model'             => 'b.engine_model',
+            'engine_prefix'            => 'b.engine_prefix',
+            'engine_number'            => 'b.engine_number',
+            'plant_excel'              => 'b.plant_excel',
+            'chassis_number'           => 'b.chassis_number',
+            'lot_code'                 => 'b.lot_code',
+            'lot_number'               => 'b.lot_number',
+            'katashiki'                => 'b.katashiki',
+            'katashiki_suffix'         => 'b.katashiki_suffix',
+            'adm_production_id'        => 'b.adm_production_id',
+            'tam_production_id'        => 'b.tam_production_id',
+            'plan_delivery_date'       => 'b.plan_delivery_date',
+            'plan_jig_in_date'         => 'b.plan_jig_in_date',
+            'wos_release_date'         => 'b.wos_release_date',
+            'sapwos_des'               => 'b.sapwos_des',
+            'location'                 => 'b.location',
+            'color_code'               => 'b.color_code',
+            'ed'                       => 'b.ed',
+            'order_column'             => 'b.order_column',
+            'destination'              => 'b.destination',
+            'model'                    => 'b.model',
+        ];
+
+        // Orderable column index → DB field
+        $order_map = [
+            1  => 'b.wos_material',
+            2  => 'b.wos_material_description',
+            3  => 'b.sapnik',
+            4  => 'b.sap_material',
+            5  => 'b.engine_model',
+            6  => 'b.engine_prefix',
+            7  => 'b.engine_number',
+            8  => 'b.plant_excel',
+            9  => 'b.chassis_number',
+            10 => 'b.lot_code',
+            11 => 'b.lot_number',
+            12 => 'b.katashiki',
+            13 => 'b.katashiki_suffix',
+            14 => 'b.adm_production_id',
+            15 => 'b.tam_production_id',
+            16 => 'b.plan_delivery_date',
+            17 => 'b.plan_jig_in_date',
+            18 => 'b.wos_release_date',
+            19 => 'b.sapwos_des',
+            20 => 'b.location',
+            21 => 'b.color_code',
+            22 => 'b.ed',
+            23 => 'b.order_column',
+            24 => 'b.destination',
+            25 => 'b.model',
+        ];
+        $order_field = isset($order_map[$order_col]) ? $order_map[$order_col] : 'b.plan_delivery_date';
+
+        // Latest checking_wos row per VIN. Written as a JOIN on MAX(id) (with an
+        // index on checking_wos(vin, id) this is a loose index scan + PK lookup,
+        // far faster than the old "id IN (SELECT MAX(id) ...)" form).
+        $join = "LEFT JOIN (
+                     SELECT cw.vin, cw.kap, cw.pdd_input
+                     FROM checking_wos cw
+                     INNER JOIN (
+                         SELECT vin, MAX(id) AS max_id
+                         FROM checking_wos
+                         GROUP BY vin
+                     ) lc ON lc.max_id = cw.id
+                 ) c ON c.vin = b.sapnik";
+
+        // Build WHERE conditions
+        $conditions = ['b.id > 0'];
+
+        if (!empty($start_date)) {
+            $conditions[] = "b.plan_delivery_date >= '" . $this->db->escape_str($start_date) . "'";
+        }
+        if (!empty($end_date)) {
+            $conditions[] = "b.plan_delivery_date <= '" . $this->db->escape_str($end_date) . "'";
+        }
+        $status_active = ($already_process !== '' && $already_process !== NULL && $already_process !== false);
+        if ($status_active) {
+            if (intval($already_process) === 0) {
+                $conditions[] = "c.vin IS NULL";
+                $conditions[] = "b.sapnik NOT IN (SELECT sapnik FROM tabungan_vlt UNION SELECT sapnik FROM tabungan_vlt_kap2)";
+            } else {
+                $conditions[] = "c.vin IS NOT NULL";
+            }
+        }
+        if (!empty($model_filter) && $model_filter !== 'all') {
+            $conditions[] = "b.model = '" . $this->db->escape_str($model_filter) . "'";
+        }
+
+        // Column filters (multi-value dropdown → IN)
+        foreach ($search_fields as $param => $field) {
+            $vals = $this->input->post('f_' . $param);
+            if (!is_array($vals) || count($vals) === 0) continue;
+
+            $in_parts = [];
+            $has_blank = false;
+            foreach ($vals as $v) {
+                if ($v === '' || $v === NULL) { $has_blank = true; continue; }
+                $in_parts[] = "'" . $this->db->escape_str($v) . "'";
+            }
+
+            $sub = [];
+            if (!empty($in_parts)) $sub[] = "{$field} IN (" . implode(',', $in_parts) . ")";
+            if ($has_blank)        $sub[] = "({$field} IS NULL OR {$field} = '')";
+            if (!empty($sub))      $conditions[] = '(' . implode(' OR ', $sub) . ')';
+        }
+
+        $where = implode(' AND ', $conditions);
+
+        // Total (unfiltered) — plain row count, no join needed
+        $total = (int)$this->db->query(
+            "SELECT COUNT(*) AS cnt FROM bank_vlt"
+        )->row()->cnt;
+
+        // Filtered count — only join checking_wos when the status filter needs it
+        $count_join = $status_active ? $join : '';
+        $filtered = (int)$this->db->query(
+            "SELECT COUNT(*) AS cnt FROM bank_vlt b {$count_join} WHERE {$where}"
+        )->row()->cnt;
+
+        // Page data
+        $rows = $this->db->query(
+            "SELECT b.*, IF(c.vin IS NOT NULL, 1, 0) AS already_process,
+                    c.kap AS wos_plant, c.pdd_input AS wos_pdd_input
+             FROM bank_vlt b {$join}
+             WHERE {$where}
+             ORDER BY {$order_field} {$order_dir}, b.id ASC
+             LIMIT {$start}, {$length}"
+        )->result_array();
+
+        $data = [];
+        foreach ($rows as $d) {
+            $data[] = [
+                'id'                       => $d['id'],
+                'wos_material'             => $d['wos_material'],
+                'wos_material_description' => $d['wos_material_description'],
+                'sapnik'                   => $d['sapnik'],
+                'sap_material'             => $d['sap_material'],
+                'engine_model'             => $d['engine_model'],
+                'engine_prefix'            => $d['engine_prefix'],
+                'engine_number'            => $d['engine_number'],
+                'plant_excel'              => $d['plant_excel'],
+                'chassis_number'           => $d['chassis_number'],
+                'lot_code'                 => $d['lot_code'],
+                'lot_number'               => $d['lot_number'],
+                'katashiki'                => $d['katashiki'],
+                'katashiki_suffix'         => $d['katashiki_suffix'],
+                'adm_production_id'        => $d['adm_production_id'],
+                'tam_production_id'        => $d['tam_production_id'],
+                'plan_delivery_date'       => $d['plan_delivery_date'],
+                'plan_jig_in_date'         => $d['plan_jig_in_date'],
+                'wos_release_date'         => $d['wos_release_date'],
+                'sapwos_des'               => $d['sapwos_des'],
+                'location'                 => $d['location'],
+                'color_code'               => $d['color_code'],
+                'ed'                       => $d['ed'],
+                'order_column'             => $d['order_column'],
+                'destination'              => $d['destination'],
+                'model'                    => $d['model'],
+                'already_process'          => (int)$d['already_process'],
+                'plant'                    => $d['wos_plant'] ?? '',
+                'pdd_proses'               => !empty($d['wos_pdd_input']) ? date('d-m-Y', strtotime($d['wos_pdd_input'])) : '',
+            ];
+        }
+
+        echo json_encode([
+            'draw'            => $draw,
+            'recordsTotal'    => $total,
+            'recordsFiltered' => $filtered,
+            'data'            => $data,
+        ]);
+        die();
+    }
+
+    /**
+     * Distinct values per column for the header checkbox dropdowns.
+     * Scoped by the same month / status / model base filter as the table.
+     */
+    public function get_filter_options_bank_vlt()
+    {
+        header('Content-Type: application/json');
+
+        $start_date      = $this->input->get('start_date');
+        $end_date        = $this->input->get('end_date');
+        $already_process = $this->input->get('already_process');
+        $model_filter    = $this->input->get('model_filter');
+
+        $join = "LEFT JOIN (
+                     SELECT vin, kap, pdd_input
+                     FROM checking_wos
+                     WHERE id IN (SELECT MAX(id) FROM checking_wos GROUP BY vin)
+                 ) c ON c.vin = b.sapnik";
+
+        $conditions = ['b.id > 0'];
+        if (!empty($start_date)) {
+            $conditions[] = "b.plan_delivery_date >= '" . $this->db->escape_str($start_date) . "'";
+        }
+        if (!empty($end_date)) {
+            $conditions[] = "b.plan_delivery_date <= '" . $this->db->escape_str($end_date) . "'";
+        }
+        if ($already_process !== '' && $already_process !== NULL && $already_process !== false) {
+            if (intval($already_process) === 0) {
+                $conditions[] = "c.vin IS NULL";
+                $conditions[] = "b.sapnik NOT IN (SELECT sapnik FROM tabungan_vlt UNION SELECT sapnik FROM tabungan_vlt_kap2)";
+            } else {
+                $conditions[] = "c.vin IS NOT NULL";
+            }
+        }
+        if (!empty($model_filter) && $model_filter !== 'all') {
+            $conditions[] = "b.model = '" . $this->db->escape_str($model_filter) . "'";
+        }
+        $where = implode(' AND ', $conditions);
+
+        $cols = [
+            'wos_material', 'wos_material_description', 'sapnik', 'sap_material', 'engine_model',
+            'engine_prefix', 'engine_number', 'plant_excel', 'chassis_number', 'lot_code',
+            'lot_number', 'katashiki', 'katashiki_suffix', 'adm_production_id', 'tam_production_id',
+            'plan_delivery_date', 'plan_jig_in_date', 'wos_release_date', 'sapwos_des', 'location',
+            'color_code', 'ed', 'order_column', 'destination', 'model',
+        ];
+
+        $rows = $this->db->query(
+            "SELECT b.* FROM bank_vlt b {$join} WHERE {$where}"
+        )->result_array();
+
+        $opts = [];
+        $seen = [];
+        foreach ($cols as $c) { $opts[$c] = []; $seen[$c] = []; }
+
+        foreach ($rows as $r) {
+            foreach ($cols as $c) {
+                $v = isset($r[$c]) && $r[$c] !== NULL ? (string)$r[$c] : '';
+                if (!isset($seen[$c][$v])) {
+                    $seen[$c][$v] = true;
+                    $opts[$c][] = $v;
+                }
+            }
+        }
+        foreach ($cols as $c) sort($opts[$c]);
+
+        echo json_encode(['status' => 'success', 'options' => $opts]);
+        die();
+    }
+
+    public function download_csv()
+    {
+        $start_date      = $this->input->get('start_date');
+        $end_date        = $this->input->get('end_date');
+        $already_process = $this->input->get('already_process');
+
+        $conditions = ['id > 0'];
+
+        if (!empty($start_date)) {
+            $conditions[] = "plan_delivery_date >= '" . $this->db->escape_str($start_date) . "'";
+        }
+        if (!empty($end_date)) {
+            $conditions[] = "plan_delivery_date <= '" . $this->db->escape_str($end_date) . "'";
+        }
+        if ($already_process !== '' && $already_process !== NULL && $already_process !== false) {
+            if (intval($already_process) === 0) {
+                $conditions[] = "sapnik NOT IN (SELECT sapnik FROM tabungan_vlt UNION SELECT sapnik FROM tabungan_vlt_kap2)";
+            } else {
+                $conditions[] = "sapnik IN (SELECT sapnik FROM tabungan_vlt UNION SELECT sapnik FROM tabungan_vlt_kap2)";
+            }
+        }
+
+        $where = implode(' AND ', $conditions);
+        $query = $this->db->query(
+            "SELECT b.sapnik, b.katashiki_suffix, b.plan_delivery_date, b.color_code, b.destination, b.model,
+                    c.kap
+             FROM bank_vlt b
+             LEFT JOIN (
+                 SELECT vin, kap
+                 FROM checking_wos
+                 WHERE id IN (SELECT MAX(id) FROM checking_wos GROUP BY vin)
+             ) c ON c.vin = b.sapnik
+             WHERE {$where}
+             ORDER BY b.plan_delivery_date ASC, b.id ASC"
+        );
+
+        $filename = 'Bank_VLT_' . date('d-m-Y_His') . '.csv';
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Cache-Control: no-cache');
+
+        $out = fopen('php://output', 'w');
+        // BOM agar Excel baca UTF-8 dengan benar
+        fputs($out, "\xEF\xBB\xBF");
+        fputcsv($out, ['SAPNIK', 'Katashiki Suffix', 'Plan Delivery Date', 'Color Code', 'Destination', 'Model', 'KAP'], ';');
+
+        while ($row = $query->unbuffered_row('array')) {
+            $kap = !empty($row['kap']) ? 'KAP' . $row['kap'] : '';
+            fputcsv($out, [
+                $row['sapnik'],
+                $row['katashiki_suffix'],
+                $row['plan_delivery_date'],
+                $row['color_code'],
+                $row['destination'],
+                $row['model'],
+                $kap,
+            ], ';');
+        }
+
+        fclose($out);
+        exit;
     }
 
     public function download_bank_vlt()
@@ -561,21 +885,35 @@ class Bank_VLT extends Construct
         $end_date        = $this->input->get("end_date");
         $already_process = $this->input->get("already_process");
 
-        $where = "id > 0";
+        $conditions = ["b.id > 0"];
 
         if (!empty($start_date)) {
-            $where .= " AND plan_delivery_date >= '" . $this->db->escape_str($start_date) . "'";
+            $conditions[] = "b.plan_delivery_date >= '" . $this->db->escape_str($start_date) . "'";
         }
         if (!empty($end_date)) {
-            $where .= " AND plan_delivery_date <= '" . $this->db->escape_str($end_date) . "'";
+            $conditions[] = "b.plan_delivery_date <= '" . $this->db->escape_str($end_date) . "'";
         }
-        if ($already_process !== '' && $already_process !== NULL) {
-            $where .= " AND already_process = '" . intval($already_process) . "'";
+        if ($already_process !== '' && $already_process !== NULL && $already_process !== false) {
+            if (intval($already_process) === 0) {
+                $conditions[] = "c.vin IS NULL";
+            } else {
+                $conditions[] = "c.vin IS NOT NULL";
+            }
         }
 
-        $where .= " ORDER BY plan_delivery_date ASC, id ASC";
-
-        $data = $this->model->gds("bank_vlt", "*", $where, "result");
+        $where_str = implode(' AND ', $conditions);
+        $data = $this->db->query(
+            "SELECT b.*, IF(c.vin IS NOT NULL, 1, 0) AS already_process,
+                    c.kap AS wos_plant, c.pdd_input AS wos_pdd_input
+             FROM bank_vlt b
+             LEFT JOIN (
+                 SELECT vin, kap, pdd_input
+                 FROM checking_wos
+                 WHERE id IN (SELECT MAX(id) FROM checking_wos GROUP BY vin)
+             ) c ON c.vin = b.sapnik
+             WHERE {$where_str}
+             ORDER BY b.plan_delivery_date ASC, b.id ASC"
+        )->result();
 
         $this->load->library('excel');
         $excel  = new PHPExcel();

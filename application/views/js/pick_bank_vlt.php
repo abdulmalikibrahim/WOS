@@ -72,15 +72,9 @@ function initDataTable() {
         return true;
     });
 
-    // SAPNIK paste/multi-line filter
-    $('#fc-sapnik').on('input paste', function () {
-        const el = this;
-        setTimeout(function () {
-            const lines = el.value.split(/[\n\r,]+/).map(s => s.trim().toUpperCase()).filter(Boolean);
-            sapnikSet = new Set(lines);
-            updateSapnikCount();
-            if (dt) dt.draw();
-        }, 0);
+    // SAPNIK: Enter in modal textarea applies filter
+    $('#fc-sapnik').on('keydown', function (e) {
+        if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); applySapnikModal(); }
     });
 
     // Checkbox delegation
@@ -89,6 +83,14 @@ function initDataTable() {
         else              selectedIds.delete(this.value);
         updateSelectedCount();
         syncCheckAll();
+    });
+
+    // Row click toggles checkbox (ignore clicks directly on the checkbox itself)
+    $('#pick-table tbody').on('click', 'tr', function (e) {
+        if ($(e.target).is('.row-chk')) return;
+        const chk = $(this).find('.row-chk');
+        if (!chk.length) return;
+        chk.prop('checked', !chk.prop('checked')).trigger('change');
     });
 }
 
@@ -114,6 +116,8 @@ function loadData() {
     $('#fc-sapnik').val('');
     if (dt) dt.columns().search('').draw();
 
+    $('#table-loading').css('display', 'flex');
+
     $.get(`<?=base_url("load_bank_vlt")?>?${params}`, function (res) {
         allData     = res.data || [];
         activeModel = '';
@@ -127,6 +131,8 @@ function loadData() {
         if (dt) dt.clear().rows.add(allData).draw();
     }).fail(function () {
         if (dt) dt.clear().draw();
+    }).always(function () {
+        $('#table-loading').hide();
     });
 }
 
@@ -155,8 +161,10 @@ function buildDropdownPanel(key) {
 
     const itemsHtml = vals.length
         ? vals.map(v => `<div class="dt-dd-item">
-                <input type="checkbox" class="dd-chk" value="${esc(v)}" ${allChecked || selected.has(v) ? 'checked' : ''}>
-                <span title="${esc(v)}">${esc(v)}</span>
+                <label style="cursor:pointer;margin:0;display:flex;align-items:center;gap:6px;width:100%;">
+                    <input type="checkbox" class="dd-chk" value="${esc(v)}" ${allChecked || selected.has(v) ? 'checked' : ''}>
+                    <span title="${esc(v)}">${esc(v)}</span>
+                </label>
             </div>`).join('')
         : '<div class="text-muted py-2 text-center" style="font-size:8pt;">Tidak ada data</div>';
 
@@ -309,6 +317,19 @@ function resetFilter() {
     loadData();
 }
 
+function openSapnikModal() {
+    $('#modal-sapnik').modal('show');
+    setTimeout(() => $('#fc-sapnik').focus(), 400);
+}
+
+function applySapnikModal() {
+    const lines = $('#fc-sapnik').val().split(/[\n\r,]+/).map(s => s.trim().toUpperCase()).filter(Boolean);
+    sapnikSet = new Set(lines);
+    updateSapnikCount();
+    if (dt) dt.draw();
+    $('#modal-sapnik').modal('hide');
+}
+
 function clearSapnikFilter() {
     $('#fc-sapnik').val('');
     sapnikSet = new Set();
@@ -319,6 +340,13 @@ function clearSapnikFilter() {
 function updateSapnikCount() {
     const n = sapnikSet.size;
     $('#sapnik-count').text(n > 0 ? n + ' VIN aktif' : '');
+    if (n > 0) {
+        $('#sapnik-badge').text(n).show();
+        $('#btn-sapnik-filter').removeClass('btn-outline-primary').addClass('btn-primary');
+    } else {
+        $('#sapnik-badge').hide();
+        $('#btn-sapnik-filter').removeClass('btn-primary').addClass('btn-outline-primary');
+    }
 }
 
 // ── Gunakan Data ──────────────────────────────────────────────────────────────
