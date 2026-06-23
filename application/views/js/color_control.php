@@ -53,7 +53,7 @@ function loadUploadModels() {
     const p = parsePeriod($('#up-period').val());
     if (!p) return;
 
-    $.get('<?=base_url("get_models_color_control")?>', { month: p.month, year: p.year }, function (res) {
+    $.get('<?=base_url("get_all_models_color_control")?>', { month: p.month, year: p.year }, function (res) {
         const $sel = $('#up-model');
         const prev = $sel.val();
         $sel.find('option:not(:first)').remove();

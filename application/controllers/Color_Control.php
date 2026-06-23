@@ -150,6 +150,22 @@ class Color_Control extends Construct
         die();
     }
 
+    public function get_all_models()
+    {
+        header('Content-Type: application/json');
+
+        $rows = $this->db->query(
+            "SELECT model FROM bank_vlt
+             WHERE model IS NOT NULL AND model != ''
+			 GROUP BY model
+             ORDER BY model ASC"
+        )->result_array();
+
+        $models = array_column($rows, 'model');
+        echo json_encode(['status' => 'ok', 'data' => $models]);
+        die();
+    }
+
     public function get_actual()
     {
         header('Content-Type: application/json');

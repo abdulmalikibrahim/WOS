@@ -180,6 +180,14 @@ function clearActiveFilters() {
 }
 
 /* ──────────────────────────────────────
+   REFRESH (summary cards + tabel) saat filter bulan berubah
+────────────────────────────────────── */
+function refreshAll() {
+    loadSummary();
+    loadData();
+}
+
+/* ──────────────────────────────────────
    LOAD DATA (server filter: bulan + status)
 ────────────────────────────────────── */
 function monthToRange(ym) {
@@ -668,7 +676,7 @@ function resetFilter() {
     sortColIndex = -1;
     sortDir      = 'asc';
     $('#header-row th').removeClass('asc desc');
-    loadData();
+    refreshAll();
 }
 
 /* ──────────────────────────────────────

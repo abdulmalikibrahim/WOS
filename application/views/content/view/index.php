@@ -98,8 +98,8 @@ if($show){
             </ol>
         </div>
     </div>
-	<div style="position: absolute; bottom: 20px; right: 20px;"><label class="font-weight-bold text-light" style="font-size:20pt;">WOCS V.10.0</label></div>
-    <img src="<?=base_url("assets/images/bg-05.png")?>" style="width:70%; height:800px; object-fit: cover; object-position: center center; position: fixed; bottom: 0px; right: 0px; z-index: -1;">
+	<div style="position: absolute; bottom: 20px; right: 20px;"><label class="font-weight-bold text-light" style="font-size:20pt;">WOCS V.13.0</label></div>
+    <img src="<?=base_url("assets/images/bg-05.png")?>" style="width:60%; height:800px; object-fit: cover; object-position: center center; position: fixed; bottom: 0px; right: 0px; z-index: -1;">
     <?php
 }else{
     ?>

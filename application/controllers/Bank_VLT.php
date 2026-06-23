@@ -166,8 +166,11 @@ class Bank_VLT extends Construct
                 $dup_info = "<br><br><b>" . count($duplicate_sapnik) . " SAPNIK duplikat ditolak:</b><br><small style='word-break:break-all;'>" . $dup_list . "</small>";
             }
 
-            if (!empty($new_data) && empty($dup_info)) {
+            if (!empty($new_data)) {
                 $insert = $this->model->insert_batch("bank_vlt", $new_data);
+                if(!empty($dup_info)){
+                    $dup_info .= "<br><br>Total VIN New Insert : ".count($new_data);
+                }
             } else {
                 $insert = false;
             }

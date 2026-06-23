@@ -94,6 +94,7 @@ $route['get_actual_color_control']    = 'Color_Control/get_actual';
 $route['clear_color_control']         = 'Color_Control/clear';
 $route['download_template_color_control'] = 'Color_Control/download_template';
 $route['get_models_color_control']     = 'Color_Control/get_models';
+$route['get_all_models_color_control'] = 'Color_Control/get_all_models';
 
 //SUFFIX CONTROL
 $route['suffix_control']                    = 'Suffix_Control/index';

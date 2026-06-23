@@ -275,7 +275,7 @@
             <div class="d-flex flex-wrap align-items-end mb-3" style="gap:15px;">
                 <div class="d-flex flex-column">
                     <label style="font-size:.75rem; font-weight:bold;" class="mb-1">Month</label>
-                    <input type="month" id="f-month" class="form-control form-control-sm" style="max-width:150px;" onchange="loadData()">
+                    <input type="month" id="f-month" class="form-control form-control-sm" style="max-width:150px;" onchange="refreshAll()">
                 </div>
                 <div class="d-flex flex-column">
                     <label style="font-size:.75rem; font-weight:bold;" class="mb-1">Status</label>
@@ -285,7 +285,7 @@
                         <option value="1">Already Process</option>
                     </select>
                 </div>
-                <button class="btn btn-sm btn-primary" onclick="loadData()"><i class="fas fa-sync"></i> Refresh Data</button>
+                <button class="btn btn-sm btn-primary" onclick="refreshAll()"><i class="fas fa-sync"></i> Refresh Data</button>
                 
                 <div class="ml-auto">
                     <label style="font-size:.75rem; font-weight:bold; visibility:hidden;" class="mb-1">Upload Data</label>
