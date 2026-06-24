@@ -97,7 +97,7 @@ function initDataTable() {
 // ── Load data ─────────────────────────────────────────────────────────────────
 function loadData() {
     const ym = $('#f-month').val();
-    let params = 'already_process=0';
+    let params = 'already_process=0&exclude_master=1';
     if (ym) {
         const r = monthToRange(ym);
         params += `&start_date=${r.start}&end_date=${r.end}`;

@@ -101,8 +101,8 @@ foreach ($array_suffix_kap2 as $array_suffix_kap2) {
                     cancelButtonText: "Tidak"
                 }).then((result) => {
                     if (result.isConfirmed) {
-                        // Kalau klik "Ya", munculin modal upload
-                        $('#modalUploadExcel').modal('show');
+                        // Kalau klik "Ya", langsung ke menu Bank VLT (ambil data tabungan D55L)
+                        window.location.href = "<?=base_url('pick_bank_vlt?kap=kap2')?>";
                     }
                 });
             },
@@ -177,68 +177,52 @@ foreach ($array_suffix_kap2 as $array_suffix_kap2) {
 
     // --- LOGIC DOCKING FIX ---
     function docking(data = null) {
+        var tipe = (data) ? data.dataset.tipe : "kap1";
+        var url_truncate = "";
+        var array_suffix = {};
+
+        window.docking_vars = {
+            total_plan: 0,
+            total_suffix: 0,
+            tipe: tipe,
+            processed_count: 0 // Counter manual untuk tracking progress
+        };
+
+        if(tipe == "kap1"){
+            url_truncate = "<?=base_url("docking_truncate")?>";
+            array_suffix = {<?= $suffix_final ?>};
+            window.docking_vars.total_plan = <?=!empty($total_plan->total_plan) ? ($total_plan->total_plan*1) : 0?>;
+            window.docking_vars.total_suffix = <?=!empty($total_suffix) ? $total_suffix : 0?>;
+        }else{
+            url_truncate = "<?=base_url("docking_truncate?t=kap2")?>";
+            array_suffix = {<?= $suffix_final_kap2 ?>};
+            window.docking_vars.total_plan = <?= !empty($total_plan_kap2) ? ($total_plan_kap2->total_plan*1) : "0"?>;
+            window.docking_vars.total_suffix = <?=$total_suffix_kap2?>;
+        }
+
+        var keys = Object.keys(array_suffix);
+        var last_suffix = keys[keys.length - 1];
+
+        loading_docking("Sedang Proses Docking...","Mohon tunggu, proses dilakukan berurutan agar data akurat...");
+
         $.ajax({
-            url:"<?= base_url("process_tabungan_dummy_kap1") ?>",
+            url: url_truncate,
             beforeSend: function() {
-                swal.fire({
-                    title: 'Tunggu bentar...',
-                    text: 'Lagi upload file...',
-                    allowOutsideClick: false,
-                    didOpen: () => { swal.showLoading() }
-                });
-            },
-            success: function(res) {
-                var tipe = (data) ? data.dataset.tipe : "kap1";
-                var url_truncate = "";
-                var array_suffix = {}; 
-                
-                window.docking_vars = {
-                    total_plan: 0,
-                    total_suffix: 0,
-                    tipe: tipe,
-                    processed_count: 0 // Counter manual untuk tracking progress
-                };
-
                 if(tipe == "kap1"){
-                    url_truncate = "<?=base_url("docking_truncate")?>";
-                    array_suffix = {<?= $suffix_final ?>};
-                    window.docking_vars.total_plan = <?=!empty($total_plan->total_plan) ? ($total_plan->total_plan*1) : 0?>;
-                    window.docking_vars.total_suffix = <?=!empty($total_suffix) ? $total_suffix : 0?>;
+                    $("#docking-kap1").html("Sedang Docking...");
                 }else{
-                    url_truncate = "<?=base_url("docking_truncate?t=kap2")?>";
-                    array_suffix = {<?= $suffix_final_kap2 ?>};
-                    window.docking_vars.total_plan = <?= !empty($total_plan_kap2) ? ($total_plan_kap2->total_plan*1) : "0"?>;
-                    window.docking_vars.total_suffix = <?=$total_suffix_kap2?>;
+                    $("#docking").html("Sedang Docking...");
                 }
-
-                var keys = Object.keys(array_suffix);
-                var last_suffix = keys[keys.length - 1];
-
-                loading_docking("Sedang Proses Docking...","Mohon tunggu, proses dilakukan berurutan agar data akurat...");
-                
-                $.ajax({
-                    url: url_truncate,
-                    beforeSend: function() {
-                        if(tipe == "kap1"){
-                            $("#docking-kap1").html("Sedang Docking...");
-                        }else{
-                            $("#docking").html("Sedang Docking...");
-                        }
-                    },
-                    success: function(r) {
-                        if(r == "sukses"){
-                            process_docking_sequence(keys, array_suffix, last_suffix);
-                        }else{
-                            swal.fire("Error","Terjadi kesalahan saat membersihkan data lama","error");
-                        }
-                    },
-                    error: function(xhr,status,error) {
-                        swal.fire({icon:"error",title:"Gagal Truncate",html:xhr.responseText});
-                    }
-                });
             },
-            error: function(a,b,c) {
-                swal.fire("Gagal!", a.responseText, "error");
+            success: function(r) {
+                if(r == "sukses"){
+                    process_docking_sequence(keys, array_suffix, last_suffix);
+                }else{
+                    swal.fire("Error","Terjadi kesalahan saat membersihkan data lama","error");
+                }
+            },
+            error: function(xhr,status,error) {
+                swal.fire({icon:"error",title:"Gagal Truncate",html:xhr.responseText});
             }
         });
     }

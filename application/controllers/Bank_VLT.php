@@ -212,8 +212,23 @@ class Bank_VLT extends Construct
         $start_date      = $this->input->get("start_date");
         $end_date        = $this->input->get("end_date");
         $already_process = $this->input->get("already_process");
+        $exclude_master  = $this->input->get("exclude_master");
 
         $conditions = ["b.id > 0"];
+
+        // Saat dipakai dari menu pick (ambil data untuk Tabungan), jangan munculkan
+        // SAPNIK yang sudah ada di master / master_kap2 agar tidak terjadi double data.
+        // Kedua tabel itu berada di database heijunka (db_heijunka_wos), bukan database
+        // default, jadi ambil nama database-nya secara dinamis lalu join lintas-database.
+        $master_join = "";
+        if ($exclude_master == 1) {
+            $hj_db = $this->model->db_heijunka->database;
+            $master_join = "
+             LEFT JOIN (SELECT DISTINCT SAPNIK FROM `{$hj_db}`.master      WHERE SAPNIK IS NOT NULL AND SAPNIK != '') m1 ON m1.SAPNIK = b.sapnik
+             LEFT JOIN (SELECT DISTINCT SAPNIK FROM `{$hj_db}`.master_kap2 WHERE SAPNIK IS NOT NULL AND SAPNIK != '') m2 ON m2.SAPNIK = b.sapnik";
+            $conditions[] = "m1.SAPNIK IS NULL";
+            $conditions[] = "m2.SAPNIK IS NULL";
+        }
 
         if (!empty($start_date)) {
             $conditions[] = "b.plan_delivery_date >= '" . $this->db->escape_str($start_date) . "'";
@@ -239,6 +254,7 @@ class Bank_VLT extends Construct
                  FROM checking_wos
                  WHERE id IN (SELECT MAX(id) FROM checking_wos GROUP BY vin)
              ) c ON c.vin = b.sapnik
+             {$master_join}
              WHERE {$where_str}
              ORDER BY b.plan_delivery_date ASC, b.id ASC"
         )->result();

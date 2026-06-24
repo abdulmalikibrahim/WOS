@@ -49,7 +49,7 @@ header("Content-Disposition: attachment;filename = HARD COPY WOS KAP1 PDD ".date
                     //PID Color
                     if($data_wos_hc1->Model_Name == "TD-Link"){
                         $pid1 = $grey;
-                    }else if(substr_count($data_wos_hc1->SAPNIK,"D74LINK") > 0){
+                    }else if(substr_count($data_wos_hc1->Model,"X") > 0){
                         $pid1 = $white;
                     }else{
 						if(!empty($get_std1)){
@@ -74,7 +74,7 @@ header("Content-Disposition: attachment;filename = HARD COPY WOS KAP1 PDD ".date
                     //VARIANT Color
                     if($data_wos_hc1->Model_Name == "TD-Link"){
                         $variant1 = $grey;
-                    }else if(substr_count($data_wos_hc1->SAPNIK,"D74LINK") > 0){
+                    }else if(substr_count($data_wos_hc1->Model,"X") > 0){
                         $variant1 = $white;
                     }else{
 						if(!empty($get_std1)){
@@ -99,7 +99,7 @@ header("Content-Disposition: attachment;filename = HARD COPY WOS KAP1 PDD ".date
                     //VIN Color
                     if($data_wos_hc1->Model_Name == "TD-Link"){
                         $vin1 = $grey;
-                    }else if(substr_count($data_wos_hc1->SAPNIK,"D74LINK") > 0){
+                    }else if(substr_count($data_wos_hc1->Model,"X") > 0){
                         $vin1 = $white;
                     }else{
 						if(!empty($get_std1)){
@@ -124,7 +124,7 @@ header("Content-Disposition: attachment;filename = HARD COPY WOS KAP1 PDD ".date
                     //TYPE Color
                     if($data_wos_hc1->Model_Name == "TD-Link"){
                         $type1 = $black;
-                    }else if(substr_count($data_wos_hc1->SAPNIK,"D74LINK") > 0){
+                    }else if(substr_count($data_wos_hc1->Model,"X") > 0){
                         $type1 = $black;
                     }else{
 						if(!empty($get_std1)){
@@ -149,7 +149,7 @@ header("Content-Disposition: attachment;filename = HARD COPY WOS KAP1 PDD ".date
                     //PDD Color
                     if($data_wos_hc1->Model_Name == "TD-Link"){
                         $pdd1 = $grey;
-                    }else if(substr_count($data_wos_hc1->SAPNIK,"D74LINK") > 0){
+                    }else if(substr_count($data_wos_hc1->Model,"X") > 0){
                         $pdd1 = $white;
                     }else{
 						if(!empty($get_std1)){
@@ -174,7 +174,7 @@ header("Content-Disposition: attachment;filename = HARD COPY WOS KAP1 PDD ".date
                     //Zero Defect Color
                     if($data_wos_hc1->Model_Name == "TD-Link"){
                         $zero_defect1 = $grey;
-                    }else if(substr_count($data_wos_hc1->SAPNIK,"D74LINK") > 0){
+                    }else if(substr_count($data_wos_hc1->Model,"X") > 0){
                         $zero_defect1 = $white;
                     }else{
 						if(!empty($get_std1)){
@@ -198,7 +198,7 @@ header("Content-Disposition: attachment;filename = HARD COPY WOS KAP1 PDD ".date
                     }
                     //Val Zero Defect
                     if(!empty($get_std1->val_zero_defect)){
-                        if(substr_count($data_wos_hc1->SAPNIK,"D74LINK") > 0){
+                        if(substr_count($data_wos_hc1->Model,"X") > 0){
                             $val_zero_defect = "LINK";
                         }else{
                             $val_zero_defect = $get_std1->val_zero_defect;
@@ -245,8 +245,9 @@ header("Content-Disposition: attachment;filename = HARD COPY WOS KAP1 PDD ".date
                         $mat_des .= $exp[10].' ';
                     }
 
-					if(substr_count($data_wos_hc1->SAPNIK,"D74LINK") > 0){
-						$model_name = "X02X";
+					$model_name = $data_wos_hc1->Model_Name;
+					if(substr_count($data_wos_hc1->Model,"X") > 0){
+						$model_name = $data_wos_hc1->Model;
                         if(!empty($suffixExport[$suffix1])){
                             $pid1 = $black;
                             $variant1 = $black;
@@ -255,8 +256,6 @@ header("Content-Disposition: attachment;filename = HARD COPY WOS KAP1 PDD ".date
                             $pdd1 = $black;
                             $zero_defect1 = $white;
                         }
-					}else{
-						$model_name = $data_wos_hc1->Model_Name;
 					}
                     $table1 .= '
                         <tr align="center">
@@ -281,7 +280,7 @@ header("Content-Disposition: attachment;filename = HARD COPY WOS KAP1 PDD ".date
                     //PID Color
                     if($data_wos_hc2->Model_Name == "TD-Link"){
                         $pid2 = $grey;
-                    }else if(substr_count($data_wos_hc2->SAPNIK,"D74LINK") > 0){
+                    }else if(substr_count($data_wos_hc2->Model,"X") > 0){
                         $pid2 = $white;
                     }else{
 						if(!empty($get_std2)){
@@ -306,7 +305,7 @@ header("Content-Disposition: attachment;filename = HARD COPY WOS KAP1 PDD ".date
                     //VARIANT Color
                     if($data_wos_hc2->Model_Name == "TD-Link"){
                         $variant2 = $grey;
-                    }else if(substr_count($data_wos_hc2->SAPNIK,"D74LINK") > 0){
+                    }else if(substr_count($data_wos_hc2->Model,"X") > 0){
                         $variant2 = $white;
                     }else{
 						if(!empty($get_std2)){
@@ -331,7 +330,7 @@ header("Content-Disposition: attachment;filename = HARD COPY WOS KAP1 PDD ".date
                     //VIN Color
                     if($data_wos_hc2->Model_Name == "TD-Link"){
                         $vin2 = $grey;
-                    }else if(substr_count($data_wos_hc2->SAPNIK,"D74LINK") > 0){
+                    }else if(substr_count($data_wos_hc2->Model,"X") > 0){
                         $vin2 = $white;
                     }else{
 						if(!empty($get_std2)){
@@ -356,7 +355,7 @@ header("Content-Disposition: attachment;filename = HARD COPY WOS KAP1 PDD ".date
                     //TYPE Color
                     if($data_wos_hc2->Model_Name == "TD-Link"){
                         $type2 = $black;
-                    }else if(substr_count($data_wos_hc2->SAPNIK,"D74LINK") > 0){
+                    }else if(substr_count($data_wos_hc2->Model,"X") > 0){
                         $type2 = $black;
                     }else{
 						if(!empty($get_std2)){
@@ -381,7 +380,7 @@ header("Content-Disposition: attachment;filename = HARD COPY WOS KAP1 PDD ".date
                     //PDD Color
                     if($data_wos_hc2->Model_Name == "TD-Link"){
                         $pdd2 = $grey;
-                    }else if(substr_count($data_wos_hc2->SAPNIK,"D74LINK") > 0){
+                    }else if(substr_count($data_wos_hc2->Model,"X") > 0){
                         $pdd2 = $white;
                     }else{
 						if(!empty($get_std2)){
@@ -406,7 +405,7 @@ header("Content-Disposition: attachment;filename = HARD COPY WOS KAP1 PDD ".date
                     //Zero Defect Color
                     if($data_wos_hc2->Model_Name == "TD-Link"){
                         $zero_defect2 = $grey;
-                    }else if(substr_count($data_wos_hc2->SAPNIK,"D74LINK") > 0){
+                    }else if(substr_count($data_wos_hc2->Model,"X") > 0){
                         $zero_defect2 = $white;
                     }else{
 						if(!empty($get_std2)){
@@ -430,7 +429,7 @@ header("Content-Disposition: attachment;filename = HARD COPY WOS KAP1 PDD ".date
                     }
                     //Val Zero Defect
                     if(!empty($get_std2->val_zero_defect)){
-                        if(substr_count($data_wos_hc2->SAPNIK,"D74LINK") > 0){
+                        if(substr_count($data_wos_hc2->Model,"X") > 0){
                             $val_zero_defect_2 = "LINK";
                         }else{
                             $val_zero_defect_2 = $get_std2->val_zero_defect;
@@ -477,8 +476,9 @@ header("Content-Disposition: attachment;filename = HARD COPY WOS KAP1 PDD ".date
                         $mat_des .= $exp[10].' ';
                     }
 
-					if(substr_count($data_wos_hc2->SAPNIK,"D74LINK") > 0){
-						$model_name = "X02X";
+					$model_name = $data_wos_hc2->Model_Name;
+					if(substr_count($data_wos_hc2->Model,"X") > 0){
+						$model_name = $data_wos_hc2->Model;
                         if(!empty($suffixExport[$suffix2])){
                             $pid2 = $black;
                             $variant2 = $black;
@@ -487,8 +487,6 @@ header("Content-Disposition: attachment;filename = HARD COPY WOS KAP1 PDD ".date
                             $pdd2 = $black;
                             $zero_defect2 = $white;
                         }
-					}else{
-						$model_name = $data_wos_hc2->Model_Name;
 					}
                     $table2 .= '
                         <tr align="center">

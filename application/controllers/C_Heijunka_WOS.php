@@ -1021,107 +1021,69 @@ class C_Heijunka_WOS extends Construct
                         $order_column = $worksheet->getCellByColumnAndRow(24, $row)->getValue();
                         $destination = $worksheet->getCellByColumnAndRow(25, $row)->getValue();
                         if (!empty($sapnik)) {
-                            if($model == "X01X"){
-                                $temp_data_td_link[] = array(
-                                    'No' => $no,
-                                    'WOS_Material' => $wos_material,
-                                    'WOS_Material_Description' => $wos_material_description,
-                                    'SAPNIK' => str_replace(" ", "", $sapnik),
-                                    'SAP_Material' => $sap_material,
-                                    'Engine_Model' => $engine_model,
-                                    'Engine_Prefix' => $engine_prefix,
-                                    'Engine_Number' => $engine_number,
-                                    'Plant' => $plant,
-                                    'Chassis_Number' => $chassis_number,
-                                    'Lot_Code' => $lot_code,
-                                    'Lot_Number' => $lot_number,
-                                    'Katashiki' => $katashiki,
-                                    'Katashiki_Sfx' => $katashiki_suffix,
-                                    'ADM_Production_Id' => $adm_production_id,
-                                    'TAM_Production_Id' => $tam_production_id,
-                                    'Plan_Delivery_Date' => $plan_delivery_date,
-                                    'Plan_Jig_In_Date' => $plan_jig_in_date,
-                                    'WOS_Release_Date' => $wos_release_date,
-                                    'SAPWOS_DES' => $sapwos_des,
-                                    'Location' => $location,
-                                    'Color_Code' => $color_code,
-                                    'ED' => $ed,
-                                    'Model' => $model,
-                                    "Model_Name" => "TD-Link",
-                                    'Order' => $order_column,
-                                    'Dest' => $destination,
-                                    "heijunka_tone" => "TD-Link",
-                                );
-                            }else{
-                                $get_model = $this->model->gds("plan_wos_base", "model_code,model_name", "suffix = '" . $katashiki_suffix . "'", "row");
-                                $transmisi = "";
-                                $color = "";
-                                $bot_color = "";
-                                $model_code = $model;
-                                $model_name = "";
-                                if(!empty($get_model)){
-                                    $transmisi = substr($katashiki_suffix, 8, 1);
-                                    $transmisi = "M";
-                                    if ($transmisi != "M") {
-                                        $transmisi = "Q";
-                                    }
+							$get_model = $this->model->gds("plan_wos_base", "model_code,model_name", "suffix = '" . $katashiki_suffix . "'", "row");
+							$transmisi = "";
+							$color = "";
+							$bot_color = "";
+							$model_code = $model;
+							$model_name = "";
+							if(!empty($get_model)){
+								$transmisi = substr($katashiki_suffix, 8, 1);
+								$transmisi = "M";
+								if ($transmisi != "M") {
+									$transmisi = "Q";
+								}
 
-                                    $model_code = !empty($get_model->model_code) ? $get_model->model_code : "";
-                                    $model_name = !empty($get_model->model_name) ? $get_model->model_name : "";
-                                }
-                                    
-                                $color_row = $this->model->gds_heijunka("color_model", "Background,Font", "Model_Name = '".$model_name."'", "row");
-                                if (!empty($color_row)) {
-                                    $color = $color_row->Background . "," . $color_row->Font;
-                                } else {
-                                    $color = "";
-                                }
+								$model_name = !empty($get_model->model_name) ? $get_model->model_name : "";
+							}
+								
+							$color_row = $this->model->gds_heijunka("color_model", "Background,Font", "Model_Name = '".$model_name."'", "row");
+							if (!empty($color_row)) {
+								$color = $color_row->Background . "," . $color_row->Font;
+							} else {
+								$color = "";
+							}
 
-                                $model_color = $model_code . $color_code;
-                                $get_bot_color = $this->model->gds_heijunka("color_both", "Bot", "Model_Warna = '$model_color'", "row");
-                                if (!empty($get_bot_color)) {
-                                    $bot_color = $get_bot_color->Bot;
-                                } else {
-                                    $bot_color = "";
-                                }
+							$model_color = $model_code . $color_code;
+							$get_bot_color = $this->model->gds_heijunka("color_both", "Bot", "Model_Warna = '$model_color'", "row");
+							if (!empty($get_bot_color)) {
+								$bot_color = $get_bot_color->Bot;
+							} else {
+								$bot_color = "";
+							}
 
-                                if($model == "X02X"){
-                                    $model_code = "X02X";
-                                }
-    
-                                $temp_data_wos[] = array(
-                                    'No' => $no,
-                                    'WOS_Material' => $wos_material,
-                                    'WOS_Material_Description' => $wos_material_description,
-                                    'SAPNIK' => str_replace(" ", "", $sapnik),
-                                    'SAP_Material' => $sap_material,
-                                    'Engine_Model' => $engine_model,
-                                    'Engine_Prefix' => $engine_prefix,
-                                    'Engine_Number' => $engine_number,
-                                    'Plant' => $plant,
-                                    'Chassis_Number' => $chassis_number,
-                                    'Lot_Code' => $lot_code,
-                                    'Lot_Number' => $lot_number,
-                                    'Katashiki' => $katashiki,
-                                    'Katashiki_Sfx' => $katashiki_suffix,
-                                    'ADM_Production_Id' => $adm_production_id,
-                                    'TAM_Production_Id' => $tam_production_id,
-                                    'Plan_Delivery_Date' => $plan_delivery_date,
-                                    'Plan_Jig_In_Date' => $plan_jig_in_date,
-                                    'WOS_Release_Date' => $wos_release_date,
-                                    'SAPWOS_DES' => $sapwos_des,
-                                    'Location' => $location,
-                                    'Color_Code' => $color_code,
-                                    'ED' => $ed,
-                                    'Model' => $model_code,
-                                    "Model_Name" => $model_name,
-                                    'Order' => $order_column,
-                                    'Dest' => $destination,
-                                    "Transmisi" => $transmisi,
-                                    "Color" => $color,
-                                    "Bot_Color" => $bot_color,
-                                );
-                            }
+							$temp_data_wos[] = array(
+								'No' => $no,
+								'WOS_Material' => $wos_material,
+								'WOS_Material_Description' => $wos_material_description,
+								'SAPNIK' => str_replace(" ", "", $sapnik),
+								'SAP_Material' => $sap_material,
+								'Engine_Model' => $engine_model,
+								'Engine_Prefix' => $engine_prefix,
+								'Engine_Number' => $engine_number,
+								'Plant' => $plant,
+								'Chassis_Number' => $chassis_number,
+								'Lot_Code' => $lot_code,
+								'Lot_Number' => $lot_number,
+								'Katashiki' => $katashiki,
+								'Katashiki_Sfx' => $katashiki_suffix,
+								'ADM_Production_Id' => $adm_production_id,
+								'TAM_Production_Id' => $tam_production_id,
+								'Plan_Delivery_Date' => $plan_delivery_date,
+								'Plan_Jig_In_Date' => $plan_jig_in_date,
+								'WOS_Release_Date' => $wos_release_date,
+								'SAPWOS_DES' => $sapwos_des,
+								'Location' => $location,
+								'Color_Code' => $color_code,
+								'ED' => $ed,
+								'Model' => $model_code,
+								"Model_Name" => $model_name,
+								'Order' => $order_column,
+								'Dest' => $destination,
+								"Transmisi" => $transmisi,
+								"Color" => $color,
+								"Bot_Color" => $bot_color,
+							);
                         }
                     }
                 }
