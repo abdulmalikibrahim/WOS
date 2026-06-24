@@ -563,9 +563,28 @@ function buildDropdownPanel(col) {
 function ddSearch(input, col) {
     var q = input.value.toLowerCase();
     document.querySelectorAll('#dd-list-' + col + ' .dt-dd-item').forEach(function (item) {
-        item.classList.toggle('dd-hidden', item.querySelector('span').textContent.toLowerCase().indexOf(q) === -1);
+        var match = item.querySelector('span').textContent.toLowerCase().indexOf(q) !== -1;
+        item.classList.toggle('dd-hidden', !match);
+        // Saat ada kata kunci: centang hanya yang cocok, uncheck sisanya
+        if (q !== '') {
+            var cb = item.querySelector('.dd-chk');
+            if (cb) cb.checked = match;
+        }
     });
-    syncDdSelectAll(col);
+
+    if (q !== '') {
+        // "Pilih Semua" mengikuti kondisi SELURUH item (bukan hanya yang tampil),
+        // jadi saat menyaring ia ikut ter-uncheck karena tidak semua tercentang.
+        var allCb      = document.querySelectorAll('#dd-list-' + col + ' .dd-chk');
+        var allChecked = document.querySelectorAll('#dd-list-' + col + ' .dd-chk:checked');
+        var allChk     = document.getElementById('dd-all-' + col);
+        if (allChk) {
+            allChk.checked       = allCb.length > 0 && allChecked.length === allCb.length;
+            allChk.indeterminate = allChecked.length > 0 && allChecked.length < allCb.length;
+        }
+    } else {
+        syncDdSelectAll(col);
+    }
 }
 
 function ddClickSelectAll(col) {

@@ -526,11 +526,16 @@ class Bank_VLT extends Construct
             die();
         }
 
-        // Clear existing tabungan for this KAP
-        $this->model->delete($table_tabungan, 'sapnik !=');
+        // Jangan hapus tabungan yang sudah ada (mis. data dummy) — data D55L ditambahkan.
+        // Lewati SAPNIK yang sudah ada di tabungan supaya tidak terjadi duplikat.
+        $existing        = $this->db->select('sapnik')->from($table_tabungan)->get()->result_array();
+        $existing_sapnik = array_column($existing, 'sapnik');
 
         $insert_data = [];
         foreach ($rows as $r) {
+            if (in_array($r['sapnik'], $existing_sapnik)) {
+                continue;
+            }
             $insert_data[] = [
                 'wos_material'             => $r['wos_material'],
                 'wos_material_description' => $r['wos_material_description'],
@@ -559,6 +564,14 @@ class Bank_VLT extends Construct
             ];
         }
 
+        if (empty($insert_data)) {
+            echo json_encode([
+                'status'  => 'error',
+                'message' => 'Semua SAPNIK terpilih sudah ada di Tabungan VLT ' . strtoupper($kap)
+            ]);
+            die();
+        }
+
         $insert = $this->model->insert_batch($table_tabungan, $insert_data);
 
         if ($insert) {
@@ -566,7 +579,7 @@ class Bank_VLT extends Construct
             $this->session->set_userdata(['tabungan_actual' => 'YES']);
             echo json_encode([
                 'status'  => 'ok',
-                'message' => count($insert_data) . ' data berhasil dipindahkan ke Tabungan VLT ' . strtoupper($kap)
+                'message' => count($insert_data) . ' data berhasil ditambahkan ke Tabungan VLT ' . strtoupper($kap)
             ]);
         } else {
             echo json_encode(['status' => 'error', 'message' => 'Gagal menyimpan data ke tabungan']);

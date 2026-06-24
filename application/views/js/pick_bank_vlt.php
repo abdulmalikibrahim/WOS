@@ -1,5 +1,7 @@
 <script>
 const KAP         = new URLSearchParams(window.location.search).get('kap') || 'kap1';
+// Tujuan redirect setelah data dipakai (default: docking_wos_dummy)
+const REDIRECT    = new URLSearchParams(window.location.search).get('redirect') || 'docking_wos_dummy';
 let allData       = [];
 let dt            = null;
 let selectedIds   = new Set();
@@ -358,10 +360,10 @@ function gunakanData() {
         title: '<div style="margin-bottom: 15px;"><i class="fas fa-question-circle" style="font-size: 4.5rem; color: #1976D2;"></i></div>' +
                '<span style="color:#2c3e50; font-size:1.4rem;">Konfirmasi Penggunaan Data</span>',
         html: '<div style="font-size: 0.95rem; color: #444; line-height: 1.5; margin-top: 10px;">' +
-              'Anda akan menyalin sebanyak <b><span style="font-size: 1.15rem; color: #1976D2;">' + ids.length + ' data</span></b> ' +
+              'Anda akan menambahkan sebanyak <b><span style="font-size: 1.15rem; color: #1976D2;">' + ids.length + ' data</span></b> ' +
               'dari Bank VLT ke Tabungan VLT <b>' + KAP.toUpperCase() + '</b>.<br><br>' +
-              '<div style="background: #fff3cd; color: #856404; padding: 12px; border-radius: 6px; border-left: 4px solid #ffc107; font-size: 0.85rem; text-align: left;">' +
-              '<i class="fas fa-exclamation-triangle"></i> <b>Perhatian:</b> Data tabungan sebelumnya pada <b>' + KAP.toUpperCase() + '</b> akan ditimpa dengan data ini.' +
+              '<div style="background: #d4edda; color: #155724; padding: 12px; border-radius: 6px; border-left: 4px solid #28a745; font-size: 0.85rem; text-align: left;">' +
+              '<i class="fas fa-info-circle"></i> <b>Info:</b> Data tabungan yang sudah ada pada <b>' + KAP.toUpperCase() + '</b> tetap dipertahankan, data ini akan ditambahkan.' +
               '</div></div>',
         showCancelButton: true,
         confirmButtonText: '<i class="fas fa-check"></i> Ya, Gunakan',
@@ -377,7 +379,7 @@ function gunakanData() {
         $.post('<?=base_url("use_bank_vlt")?>', { ids: ids, kap: KAP }, function (res) {
             if (res.status === 'ok') {
                 Swal.fire({ icon: 'success', title: 'Berhasil', text: res.message, timer: 2000, showConfirmButton: false })
-                    .then(() => { window.location.href = '<?=base_url("docking_wos_dummy")?>'; });
+                    .then(() => { window.location.href = '<?=base_url()?>' + REDIRECT; });
             } else {
                 Swal.fire('Gagal', res.message || 'Terjadi kesalahan', 'error');
             }

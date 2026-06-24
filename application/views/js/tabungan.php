@@ -102,7 +102,8 @@ foreach ($array_suffix_kap2 as $array_suffix_kap2) {
                 }).then((result) => {
                     if (result.isConfirmed) {
                         // Kalau klik "Ya", langsung ke menu Bank VLT (ambil data tabungan D55L)
-                        window.location.href = "<?=base_url('pick_bank_vlt?kap=kap2')?>";
+                        // redirect=tabungan -> setelah data dipakai, balik ke menu Tabungan
+                        window.location.href = "<?=base_url('pick_bank_vlt?kap=kap2&redirect=tabungan')?>";
                     }
                 });
             },
