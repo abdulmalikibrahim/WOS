@@ -197,14 +197,12 @@ header("Content-Disposition: attachment;filename = HARD COPY WOS KAP1 PDD ".date
 						}
                     }
                     //Val Zero Defect
+					$val_zero_defect = "";
                     if(!empty($get_std1->val_zero_defect)){
+						$val_zero_defect = $get_std1->val_zero_defect;
                         if(substr_count($data_wos_hc1->Model,"X") > 0){
-                            $val_zero_defect = "LINK";
-                        }else{
-                            $val_zero_defect = $get_std1->val_zero_defect;
+                            $val_zero_defect .= " LINK";
                         }
-                    }else{
-                        $val_zero_defect = "";
                     }
                     //PID
                     $pid_val_1 = "3Z".date("md",strtotime($pdd)).sprintf("%04d",$nomor);
@@ -428,14 +426,12 @@ header("Content-Disposition: attachment;filename = HARD COPY WOS KAP1 PDD ".date
 						}
                     }
                     //Val Zero Defect
+					$val_zero_defect_2 = "";
                     if(!empty($get_std2->val_zero_defect)){
+						$val_zero_defect_2 = $get_std2->val_zero_defect;
                         if(substr_count($data_wos_hc2->Model,"X") > 0){
-                            $val_zero_defect_2 = "LINK";
-                        }else{
-                            $val_zero_defect_2 = $get_std2->val_zero_defect;
+                            $val_zero_defect_2 .= " LINK";
                         }
-                    }else{
-                        $val_zero_defect_2 = "";
                     }
                     //PID
                     $pid_val_2 = "3Z".date("md",strtotime($pdd)).sprintf("%04d",$nomor);

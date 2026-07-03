@@ -200,6 +200,7 @@ $route['datatable_bank_vlt']     = 'Bank_VLT/datatable_bank_vlt';
 $route['get_filter_options_bank_vlt'] = 'Bank_VLT/get_filter_options_bank_vlt';
 $route['get_reason_bank_vlt']   = 'Bank_VLT/get_reason_bank_vlt';
 $route['pick_bank_vlt']         = 'Bank_VLT/pick_bank_vlt';
+$route['pick_model_list']       = 'Bank_VLT/pick_model_list';
 $route['use_bank_vlt']          = 'Bank_VLT/use_bank_vlt';
 
 //AOC

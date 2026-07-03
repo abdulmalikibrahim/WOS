@@ -30,7 +30,7 @@ foreach ($array_suffix_kap2 as $array_suffix_kap2) {
         swal.close();
         setTimeout(() => {
             if(plant == "KAP1"){
-                $("#docking-kap1").trigger("click");
+                $("#create_tabungan_dummy_kap1").trigger("click");
             }else{
                 $("#create_tabungan_dummy_kap2").trigger("click");
             }
@@ -75,37 +75,42 @@ foreach ($array_suffix_kap2 as $array_suffix_kap2) {
     }
 
     
-    function create_tabungan_dummy() {
+    function create_tabungan_dummy(plant) {
+		url_ajax = (plant == "kap1") ? "<?=base_url('process_tabungan_dummy_kap1')?>": "<?=base_url('process_tabungan_dummy_kap2')?>";
         $.ajax({
-            url: "<?=base_url('process_tabungan_dummy_kap2')?>",
+            url: url_ajax,
             type: "POST", // Sesuaikan kalau lo pake GET atau POST
             dataType: "json", // WAJIB, biar jQuery otomatis dapet Object, bukan String
             beforeSend: function() {
-                $("#create_tabungan_dummy_kap2").html('Creating....');
-                $("#create_tabungan_dummy_kap2").attr('disabled', true); // Opsional: disable tombol biar gak double click
+                $("#create_tabungan_dummy_"+plant).html('Creating....');
+                $("#create_tabungan_dummy_"+plant).attr('disabled', true); // Opsional: disable tombol biar gak double click
             },
             success: function(r) {
                 console.log(r)
-                $("#create_tabungan_dummy_kap2").html('Create Tabungan Dummy');
-                $("#create_tabungan_dummy_kap2").attr('disabled', false);
+                $("#create_tabungan_dummy_"+plant).html('Create Tabungan Dummy');
+                $("#create_tabungan_dummy_"+plant).attr('disabled', false);
 
-                // Munculin konfirmasi
-                swal.fire({
-                    title: "Sukses!",
-                    text: "Data dummy berhasil dibuat. Apakah kamu ingin upload tabungan D55L?",
-                    icon: "success",
-                    showCancelButton: true,
-                    confirmButtonColor: "#3085d6",
-                    cancelButtonColor: "#d33",
-                    confirmButtonText: "Ya, Upload!",
-                    cancelButtonText: "Tidak"
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        // Kalau klik "Ya", langsung ke menu Bank VLT (ambil data tabungan D55L)
-                        // redirect=tabungan -> setelah data dipakai, balik ke menu Tabungan
-                        window.location.href = "<?=base_url('pick_bank_vlt?kap=kap2&redirect=tabungan')?>";
-                    }
-                });
+				if(plant == "kap2"){
+					// Munculin konfirmasi
+					swal.fire({
+						title: "Sukses!",
+						text: "Data dummy berhasil dibuat. Apakah kamu ingin upload tabungan D55L?",
+						icon: "success",
+						showCancelButton: true,
+						confirmButtonColor: "#3085d6",
+						cancelButtonColor: "#d33",
+						confirmButtonText: "Ya, Upload!",
+						cancelButtonText: "Tidak"
+					}).then((result) => {
+						if (result.isConfirmed) {
+							// Kalau klik "Ya", langsung ke menu Bank VLT (ambil data tabungan D55L)
+							// redirect=tabungan -> setelah data dipakai, balik ke menu Tabungan
+							window.location.href = "<?=base_url('pick_bank_vlt?kap=kap2&redirect=tabungan')?>";
+						}
+					});
+				}else{
+					$("#docking-kap1").trigger("click");
+				}
             },
             error: function(xhr, status, error) {
                 console.log(xhr,status,error)

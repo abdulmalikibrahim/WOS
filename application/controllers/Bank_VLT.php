@@ -213,6 +213,14 @@ class Bank_VLT extends Construct
         $end_date        = $this->input->get("end_date");
         $already_process = $this->input->get("already_process");
         $exclude_master  = $this->input->get("exclude_master");
+        $kap             = $this->input->get("kap");
+        $model           = $this->input->get("model");
+
+        // Tabungan tujuan sesuai KAP — dipakai untuk menandai (kuning) SAPNIK
+        // yang sudah ada di tabungan tersebut.
+        $table_tabungan = ($kap === 'kap2') ? 'tabungan_vlt_kap2' : 'tabungan_vlt';
+        $tabungan_join  = "
+             LEFT JOIN (SELECT DISTINCT sapnik FROM `{$table_tabungan}` WHERE sapnik IS NOT NULL AND sapnik != '') t ON t.sapnik = b.sapnik";
 
         $conditions = ["b.id > 0"];
 
@@ -243,17 +251,26 @@ class Bank_VLT extends Construct
                 $conditions[] = "c.vin IS NOT NULL";
             }
         }
+        // Filter per-model: data dimuat per-model agar tidak berat saat akses awal.
+        if (!empty($model)) {
+            $conditions[] = "b.model = '" . $this->db->escape_str($model) . "'";
+        }
 
         $where_str = implode(' AND ', $conditions);
         $rows      = $this->db->query(
             "SELECT b.*, IF(c.vin IS NOT NULL, 1, 0) AS already_process,
-                    c.kap AS wos_plant, c.pdd_input AS wos_pdd_input
+                    IF(t.sapnik IS NOT NULL, 1, 0) AS in_tabungan,
+                    c.kap AS wos_plant, c.pdd_input AS wos_pdd_input,
+                    (SELECT pw.model_name FROM plan_wos_base pw
+                      WHERE pw.suffix = b.katashiki_suffix AND pw.model_code = b.model
+                      LIMIT 1) AS model_name
              FROM bank_vlt b
              LEFT JOIN (
                  SELECT vin, kap, pdd_input
                  FROM checking_wos
                  WHERE id IN (SELECT MAX(id) FROM checking_wos GROUP BY vin)
              ) c ON c.vin = b.sapnik
+             {$tabungan_join}
              {$master_join}
              WHERE {$where_str}
              ORDER BY b.plan_delivery_date ASC, b.id ASC"
@@ -289,13 +306,64 @@ class Bank_VLT extends Construct
                 'order_column'             => $d->order_column,
                 'destination'              => $d->destination,
                 'model'                    => $d->model,
+                'model_name'               => $d->model_name,
                 'already_process'          => (int)$d->already_process,
+                'in_tabungan'              => (int)$d->in_tabungan,
                 'plant'                    => $d->wos_plant ?? '',
                 'pdd_proses'               => !empty($d->wos_pdd_input) ? date("d-m-Y", strtotime($d->wos_pdd_input)) : ""
             ];
         }
 
         echo json_encode(['status' => 'success', 'data' => $result, 'total' => count($result)]);
+        die();
+    }
+
+    // Daftar model + jumlah unit untuk kartu model (ringan, hanya agregat COUNT).
+    // Dipakai menu pick agar data dimuat per-model, bukan sekaligus semua.
+    public function pick_model_list()
+    {
+        header("Content-Type: application/json");
+
+        $start_date = $this->input->get("start_date");
+        $end_date   = $this->input->get("end_date");
+
+        $hj_db = $this->model->db_heijunka->database;
+
+        $conditions = [
+            "c.vin IS NULL",
+            "m1.SAPNIK IS NULL",
+            "m2.SAPNIK IS NULL",
+            "b.model IS NOT NULL",
+            "b.model != ''",
+        ];
+        if (!empty($start_date)) {
+            $conditions[] = "b.plan_delivery_date >= '" . $this->db->escape_str($start_date) . "'";
+        }
+        if (!empty($end_date)) {
+            $conditions[] = "b.plan_delivery_date <= '" . $this->db->escape_str($end_date) . "'";
+        }
+        $where_str = implode(' AND ', $conditions);
+
+        $rows = $this->db->query(
+            "SELECT b.model, COUNT(*) AS total
+             FROM bank_vlt b
+             LEFT JOIN (
+                 SELECT vin FROM checking_wos
+                 WHERE id IN (SELECT MAX(id) FROM checking_wos GROUP BY vin)
+             ) c ON c.vin = b.sapnik
+             LEFT JOIN (SELECT DISTINCT SAPNIK FROM `{$hj_db}`.master      WHERE SAPNIK IS NOT NULL AND SAPNIK != '') m1 ON m1.SAPNIK = b.sapnik
+             LEFT JOIN (SELECT DISTINCT SAPNIK FROM `{$hj_db}`.master_kap2 WHERE SAPNIK IS NOT NULL AND SAPNIK != '') m2 ON m2.SAPNIK = b.sapnik
+             WHERE {$where_str}
+             GROUP BY b.model
+             ORDER BY b.model ASC"
+        )->result();
+
+        $models = [];
+        foreach ($rows as $r) {
+            $models[] = ['model' => $r->model, 'total' => (int)$r->total];
+        }
+
+        echo json_encode(['status' => 'success', 'data' => $models]);
         die();
     }
 
@@ -504,12 +572,49 @@ class Bank_VLT extends Construct
         $this->load->view('layout/index', $data);
     }
 
+    // Susun aturan filter (model, suffix, color) — sama seperti import_tabungan_vlt
+    private function preprocessFilter($plan)
+    {
+        $count = max(count($plan['model']), count($plan['suffix']), count($plan['color']));
+        $rules = [];
+        for ($i = 0; $i < $count; $i++) {
+            $model  = isset($plan['model'][$i])  ? strtolower(trim($plan['model'][$i]))  : 'all';
+            $suffix = isset($plan['suffix'][$i]) ? strtolower(trim($plan['suffix'][$i])) : 'all';
+            $color  = isset($plan['color'][$i])  ? strtolower(trim($plan['color'][$i]))  : 'all';
+            $rules[] = [$model, $suffix, $color];
+        }
+        return $rules;
+    }
+
+    // Cek actData ke semua rules; true = cocok aturan filter (harus di-takeout/skip)
+    private function matchAct($rules, $act)
+    {
+        $act = array_map(function ($v) {
+            return strtolower(trim($v));
+        }, $act);
+        foreach ($rules as $rule) {
+            list($m, $s, $c) = $rule;
+            $okModel  = ($m === 'all' || $m === $act['model']);
+            $okSuffix = ($s === 'all' || $s === $act['suffix']);
+            $okColor  = ($c === 'all' || $c === $act['color']);
+            if ($okModel && $okSuffix && $okColor) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public function use_bank_vlt()
     {
         header('Content-Type: application/json');
 
         $ids = $this->input->post('ids');
         $kap = $this->input->post('kap');
+
+        // ids dikirim sebagai string dipisah koma (hindari batas max_input_vars saat data banyak)
+        if (is_string($ids)) {
+            $ids = array_filter(explode(',', $ids), 'strlen');
+        }
 
         if (empty($ids) || !is_array($ids)) {
             echo json_encode(['status' => 'error', 'message' => 'Tidak ada data yang dipilih']);
@@ -531,9 +636,41 @@ class Bank_VLT extends Construct
         $existing        = $this->db->select('sapnik')->from($table_tabungan)->get()->result_array();
         $existing_sapnik = array_column($existing, 'sapnik');
 
+        // Aturan filter per-KAP (samakan dengan import_tabungan_vlt):
+        // baris yang COCOK aturan filter = takeout → tidak boleh masuk tabungan.
+        $plant        = ($kap === 'kap2') ? '2' : '1';
+        $color_filter = $this->model->gds('filter', 'model,suffix,color', "kap = '$plant'", 'result');
+        $modelFilter  = [];
+        $suffixFilter = [];
+        $colorFilter  = [];
+        foreach ($color_filter as $f) {
+            $modelFilter[]  = $f->model;
+            $suffixFilter[] = $f->suffix;
+            $colorFilter[]  = $f->color;
+        }
+        $rules = $this->preprocessFilter([
+            'model'  => $modelFilter,
+            'suffix' => $suffixFilter,
+            'color'  => $colorFilter,
+        ]);
+
         $insert_data = [];
+        $skip_dup    = 0;
+        $skip_filter = 0;
         foreach ($rows as $r) {
             if (in_array($r['sapnik'], $existing_sapnik)) {
+                $skip_dup++;
+                continue;
+            }
+            // Derivasi model/suffix/color sama seperti import resmi (dari wos_material_description).
+            $exp     = explode(' ', trim($r['wos_material_description']));
+            $actData = [
+                'model'  => isset($exp[2]) ? $exp[2] : '',
+                'suffix' => isset($exp[1]) ? $exp[1] : '',
+                'color'  => end($exp),
+            ];
+            if ($this->matchAct($rules, $actData) === true) { // cocok aturan filter = takeout
+                $skip_filter++;
                 continue;
             }
             $insert_data[] = [
@@ -565,9 +702,13 @@ class Bank_VLT extends Construct
         }
 
         if (empty($insert_data)) {
+            $reasons = [];
+            if ($skip_dup > 0)    $reasons[] = $skip_dup . ' sudah ada di tabungan';
+            if ($skip_filter > 0) $reasons[] = $skip_filter . ' kena aturan filter';
+            $detail = empty($reasons) ? '' : ' (' . implode(', ', $reasons) . ')';
             echo json_encode([
                 'status'  => 'error',
-                'message' => 'Semua SAPNIK terpilih sudah ada di Tabungan VLT ' . strtoupper($kap)
+                'message' => 'Tidak ada data yang masuk ke Tabungan VLT ' . strtoupper($kap) . $detail
             ]);
             die();
         }
@@ -577,9 +718,13 @@ class Bank_VLT extends Construct
         if ($insert) {
             // Set session so docking page shows tabungan is ready
             $this->session->set_userdata(['tabungan_actual' => 'YES']);
+            $notes = [];
+            if ($skip_dup > 0)    $notes[] = $skip_dup . ' dilewati (sudah ada)';
+            if ($skip_filter > 0) $notes[] = $skip_filter . ' dilewati (aturan filter)';
+            $note = empty($notes) ? '' : '. ' . implode(', ', $notes);
             echo json_encode([
                 'status'  => 'ok',
-                'message' => count($insert_data) . ' data berhasil ditambahkan ke Tabungan VLT ' . strtoupper($kap)
+                'message' => count($insert_data) . ' data berhasil ditambahkan ke Tabungan VLT ' . strtoupper($kap) . $note
             ]);
         } else {
             echo json_encode(['status' => 'error', 'message' => 'Gagal menyimpan data ke tabungan']);
@@ -589,109 +734,93 @@ class Bank_VLT extends Construct
 
     public function download_bank_vlt()
     {
+        // Export ringan berbasis streaming CSV — sanggup puluhan ribu baris
+        // (mis. 30rb+) tanpa membebani memori seperti PHPExcel. File CSV
+        // langsung dibuka oleh Excel.
+        @set_time_limit(0);
+
         $start_date      = $this->input->get("start_date");
         $end_date        = $this->input->get("end_date");
         $already_process = $this->input->get("already_process");
 
-        $where = "id > 0";
-
+        $conditions = ["b.id > 0"];
         if (!empty($start_date)) {
-            $where .= " AND plan_delivery_date >= '" . $this->db->escape_str($start_date) . "'";
+            $conditions[] = "b.plan_delivery_date >= '" . $this->db->escape_str($start_date) . "'";
         }
         if (!empty($end_date)) {
-            $where .= " AND plan_delivery_date <= '" . $this->db->escape_str($end_date) . "'";
+            $conditions[] = "b.plan_delivery_date <= '" . $this->db->escape_str($end_date) . "'";
         }
+        // Status proses ditentukan dari ada/tidaknya record checking_wos (c.vin).
         if ($already_process !== '' && $already_process !== NULL) {
-            $where .= " AND already_process = '" . intval($already_process) . "'";
+            $conditions[] = (intval($already_process) === 0) ? "c.vin IS NULL" : "c.vin IS NOT NULL";
         }
+        $where_str = implode(' AND ', $conditions);
 
-        $where .= " ORDER BY plan_delivery_date ASC, id ASC";
+        // line = checking_wos.kap, wos_date = checking_wos.pdd_input (ambil record terbaru per VIN).
+        $rows = $this->db->query(
+            "SELECT b.katashiki_suffix, b.katashiki, b.sapnik, b.plan_delivery_date,
+                    b.color_code, b.model, c.kap AS line, c.pdd_input AS wos_date
+             FROM bank_vlt b
+             LEFT JOIN (
+                 SELECT vin, kap, pdd_input
+                 FROM checking_wos
+                 WHERE id IN (SELECT MAX(id) FROM checking_wos GROUP BY vin)
+             ) c ON c.vin = b.sapnik
+             WHERE {$where_str}
+             ORDER BY b.plan_delivery_date ASC, b.id ASC"
+        )->result();
 
-        $data = $this->model->gds("bank_vlt", "*", $where, "result");
-
-        $this->load->library('excel');
-        $excel  = new PHPExcel();
-        $sheet  = $excel->setActiveSheetIndex(0);
-        $sheet->setTitle("Bank VLT");
-
-        $headers = [
-            'No.', 'WOS Material', 'WOS Material Description', 'SAPNIK', 'SAP Material',
-            'Engine Model', 'Engine Prefix', 'Engine Number', 'Plant (Excel)', 'ChassisNumber',
-            'Lot Code', 'Lot Number', 'Katashiki', 'Katashiki Sfx', 'ADM Production ID',
-            'TAM Production ID', 'Plan Delivery Date', 'Plan Jig In Date', 'WOS Release Date',
-            'SAPWOS-DES', 'Location', 'Color Code', 'ED', 'ORDER', 'Destination',
-            'Model', 'Status Proses', 'Plant Process', 'PDD Process'
-        ];
-
-        $col_map = array_merge(range('A', 'Z'), ['AA', 'AB', 'AC']);
-
-        $header_style = [
-            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
-            'fill' => [
-                'type'       => PHPExcel_Style_Fill::FILL_SOLID,
-                'startcolor' => ['rgb' => '1565C0'],
-            ],
-            'alignment' => ['horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER],
-        ];
-
-        foreach ($headers as $i => $header) {
-            $cell = $col_map[$i] . '1';
-            $sheet->setCellValue($cell, $header);
-            $sheet->getStyle($cell)->applyFromArray($header_style);
-            $sheet->getColumnDimension($col_map[$i])->setAutoSize(true);
+        // Nama file: sertakan periode bulan + pilihan status yang diunduh.
+        $periode_label = !empty($start_date) ? date("M-Y", strtotime($start_date)) : "SemuaPeriode";
+        if ($already_process === '' || $already_process === NULL) {
+            $status_label = "Semua";
+        } else {
+            $status_label = (intval($already_process) === 0) ? "NotYetProcess" : "AlreadyProcess";
         }
+        $filename = "Bank_VLT_{$periode_label}_{$status_label}.csv";
 
-        $row_num = 2;
-        foreach ($data as $i => $d) {
-            $sheet->setCellValue('A'  . $row_num, $i + 1);
-            $sheet->setCellValue('B'  . $row_num, $d->wos_material);
-            $sheet->setCellValue('C'  . $row_num, $d->wos_material_description);
-            $sheet->setCellValue('D'  . $row_num, $d->sapnik);
-            $sheet->setCellValueExplicit('E'  . $row_num, $d->sap_material, PHPExcel_Cell_DataType::TYPE_STRING);
-            $sheet->setCellValue('F'  . $row_num, $d->engine_model);
-            $sheet->setCellValue('G'  . $row_num, $d->engine_prefix);
-            $sheet->setCellValue('H'  . $row_num, $d->engine_number);
-            $sheet->setCellValue('I'  . $row_num, $d->plant_excel);
-            $sheet->setCellValue('J'  . $row_num, $d->chassis_number);
-            $sheet->setCellValue('K'  . $row_num, $d->lot_code);
-            $sheet->setCellValue('L'  . $row_num, $d->lot_number);
-            $sheet->setCellValue('M'  . $row_num, $d->katashiki);
-            $sheet->setCellValue('N'  . $row_num, $d->katashiki_suffix);
-            $sheet->setCellValue('O'  . $row_num, $d->adm_production_id);
-            $sheet->setCellValue('P'  . $row_num, $d->tam_production_id);
-            $sheet->setCellValue('Q'  . $row_num, strtoupper(date("d M Y",strtotime($d->plan_delivery_date))), PHPExcel_Cell_DataType::TYPE_STRING);
-            $sheet->setCellValue('R'  . $row_num, date("Ymd",strtotime($d->plan_jig_in_date)), PHPExcel_Cell_DataType::TYPE_STRING);
-            $sheet->setCellValue('S'  . $row_num, $d->wos_release_date);
-            $sheet->setCellValue('T'  . $row_num, $d->sapwos_des);
-            $sheet->setCellValue('U'  . $row_num, $d->location);
-            $sheet->setCellValue('V'  . $row_num, $d->color_code);
-            $sheet->setCellValue('W'  . $row_num, $d->ed);
-            $sheet->setCellValue('X'  . $row_num, $d->order_column);
-            $sheet->setCellValue('Y'  . $row_num, $d->destination);
-            $sheet->setCellValue('Z'  . $row_num, $d->model);
-            $sheet->setCellValue('AA' . $row_num, $d->already_process == 1 ? 'Already' : 'Not yet');
-            $sheet->setCellValue('AB' . $row_num, $d->plant);
-            $sheet->setCellValue('AC' . $row_num, $d->pdd_proses);
-
-            if ($d->already_process == 1) {
-                $sheet->getStyle('A' . $row_num . ':AC' . $row_num)->applyFromArray([
-                    'fill' => [
-                        'type'       => PHPExcel_Style_Fill::FILL_SOLID,
-                        'startcolor' => ['rgb' => 'C8E6C9'],
-                    ],
-                ]);
-            }
-            $row_num++;
-        }
-
-        $filename = "Bank_VLT_" . date("d-m-Y_His") . ".xls";
-        header("Content-Type: application/vnd.ms-excel");
-        header("Content-Disposition: attachment;filename=\"$filename\"");
+        header("Content-Type: text/csv; charset=UTF-8");
+        header("Content-Disposition: attachment; filename=\"$filename\"");
         header("Cache-Control: max-age=0");
         header("Pragma: public");
 
-        $writer = PHPExcel_IOFactory::createWriter($excel, "Excel5");
-        $writer->save("php://output");
+        // Bersihkan output buffer agar tidak ada byte lain sebelum CSV.
+        while (ob_get_level() > 0) { ob_end_clean(); }
+
+        // Pemisah kolom ";" agar langsung terpisah per kolom di Excel (locale ID).
+        // Ini hanya soal delimiter — tidak memengaruhi kecepatan/berat file.
+        $delimiter = ';';
+
+        $out = fopen("php://output", "w");
+        // BOM UTF-8 supaya Excel membaca karakter dengan benar.
+        fwrite($out, "\xEF\xBB\xBF");
+
+        fputcsv($out, [
+            'No', 'Katashiki Suffix', 'Katashiki', 'SAPNIK',
+            'Plan Delivery Date', 'Color Code', 'Model', 'Line', 'WOS Date'
+        ], $delimiter);
+
+        $fmt_date = function ($v) {
+            if (empty($v) || $v === '0000-00-00' || $v === '0000-00-00 00:00:00') return '';
+            return date("d-m-Y", strtotime($v));
+        };
+
+        $no = 1;
+        foreach ($rows as $d) {
+            fputcsv($out, [
+                $no++,
+                $d->katashiki_suffix,
+                $d->katashiki,
+                $d->sapnik,
+                $fmt_date($d->plan_delivery_date),
+                $d->color_code,
+                $d->model,
+                $d->line,
+                $fmt_date($d->wos_date),
+            ], $delimiter);
+        }
+
+        fclose($out);
         die();
     }
 }

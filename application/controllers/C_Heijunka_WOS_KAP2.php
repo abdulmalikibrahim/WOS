@@ -1923,7 +1923,7 @@ class C_Heijunka_WOS_KAP2 extends Construct
             $suffix = $data_kap2->suffix;
             $plan = $data_kap2->plan;
             //GET DATA DETAIL TABUNGAN VLT
-            $data_tabungan = $this->model->gds("tabungan_vlt_base","*","katashiki_suffix = '$suffix'","row");
+            $data_tabungan = $this->model->gds("tabungan_vlt_base","*","katashiki_suffix = '$suffix' AND wos_material_description NOT LIKE '% D55L %'","row");
             $tabungan_encode = json_encode($data_tabungan);
             $tabungan_decode = json_decode($tabungan_encode,true);
             for ($i=0; $i < $plan; $i++) {

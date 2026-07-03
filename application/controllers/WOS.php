@@ -387,16 +387,33 @@ class WOS extends Construct {
 		}else{
 			$filename = "UPLOAD WOS KAP1 PDD ".date("d-m-Y",strtotime($pdd));
 		}
-		header('Content-Tyep: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-		header('Content-Disposition: attachment; filename=' . $filename . '.xls');
-		header('Cache-Control: max-age=0');
-		$write = PHPExcel_IOFactory::createWriter($excel, 'Excel5');
-		$write->save('php://output');
-		error_reporting(E_ALL);
-		exit();
-				
+		$this->output_protected_xlsx($excel, $filename);
 	}
-	
+
+	// Simpan sebagai .xlsx lalu enkripsi dengan password buka file dari tabel pass_excel (id = 1)
+	private function output_protected_xlsx($excel, $filename)
+	{
+		if (!class_exists('ZipArchive')) {
+			PHPExcel_Settings::setZipClass(PHPExcel_Settings::PCLZIP);
+		}
+		$write = PHPExcel_IOFactory::createWriter($excel, 'Excel2007');
+		$tmp_file = tempnam(sys_get_temp_dir(), 'xlsx');
+		$write->save($tmp_file);
+		$data = file_get_contents($tmp_file);
+		@unlink($tmp_file);
+		$pass_excel = $this->model->gds("pass_excel", "pass", "id = 1", "row");
+		if (!empty($pass_excel->pass)) {
+			$this->load->library('xlsx_encryptor');
+			$data = $this->xlsx_encryptor->encrypt($data, $pass_excel->pass);
+		}
+		header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+		header('Content-Disposition: attachment; filename="' . $filename . '.xlsx"');
+		header('Cache-Control: max-age=0');
+		header('Content-Length: ' . strlen($data));
+		echo $data;
+		exit();
+	}
+
 	public function download_hardcopy()
 	{
 		$this->load->view("content/view/download_hardcopy");
@@ -638,14 +655,7 @@ class WOS extends Construct {
 		}else{
 			$filename = "UPLOAD WOS KAP2 PDD ".date("d-m-Y",strtotime($pdd));
 		}
-		header('Content-Tyep: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-		header('Content-Disposition: attachment; filename=' . $filename . '.xls');
-		header('Cache-Control: max-age=0');
-		$write = PHPExcel_IOFactory::createWriter($excel, 'Excel5');
-		$write->save('php://output');
-		error_reporting(E_ALL);
-		exit();
-				
+		$this->output_protected_xlsx($excel, $filename);
 	}
 	public function download_hardcopy_kap2()
 	{

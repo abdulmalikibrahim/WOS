@@ -822,13 +822,29 @@ function saveInlineEdit(reason, pic) {
    DOWNLOAD EXCEL
 ────────────────────────────────────── */
 function downloadExcel() {
-    var range  = monthToRange($('#f-month').val());
-    var params = $.param({
-        start_date:      range.start,
-        end_date:        range.end,
-        already_process: $('#f-status').val(),
+    swal.fire({
+        title: 'Download Bank VLT',
+        html: '<div style="font-size:.9rem;color:#555;margin-bottom:16px;">Pilih data yang ingin diunduh:</div>' +
+              '<div style="display:flex;flex-direction:column;gap:10px;">' +
+              '<button type="button" class="btn btn-primary" onclick="doDownloadBankVlt(\'\')"><i class="fas fa-database"></i> Download Semua</button>' +
+              '<button type="button" class="btn btn-success" onclick="doDownloadBankVlt(\'1\')"><i class="fas fa-check-circle"></i> Already Process</button>' +
+              '<button type="button" class="btn btn-danger" onclick="doDownloadBankVlt(\'0\')"><i class="fas fa-hourglass-half"></i> Not Yet Process</button>' +
+              '</div>',
+        showConfirmButton: false,
+        showCancelButton: true,
+        cancelButtonText: '<i class="fas fa-times"></i> Batal',
+        cancelButtonColor: '#9E9E9E',
+        width: '420px',
     });
-    window.open('<?= base_url("download_bank_vlt") ?>?' + params, '_blank');
+}
+
+/* status: '' = semua, '1' = already process, '0' = not yet process */
+function doDownloadBankVlt(status) {
+    var range = monthToRange($('#f-month').val());
+    var data  = { start_date: range.start, end_date: range.end };
+    if (status !== '') data.already_process = status;
+    window.open('<?= base_url("download_bank_vlt") ?>?' + $.param(data), '_blank');
+    swal.close();
 }
 
 /* ──────────────────────────────────────

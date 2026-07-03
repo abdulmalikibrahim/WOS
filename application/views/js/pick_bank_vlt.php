@@ -3,19 +3,22 @@ const KAP         = new URLSearchParams(window.location.search).get('kap') || 'k
 // Tujuan redirect setelah data dipakai (default: docking_wos_dummy)
 const REDIRECT    = new URLSearchParams(window.location.search).get('redirect') || 'docking_wos_dummy';
 let allData       = [];
+let modelList     = [];
 let dt            = null;
 let selectedIds   = new Set();
 let activeModel   = '';
 let sapnikSet     = new Set();
 
-const excelFilters = { suffix: new Set(), pdd: new Set(), color: new Set(), dest: new Set(), model: new Set() };
-const excelValues  = { suffix: [], pdd: [], color: [], dest: [], model: [] };
+const excelFilters = { lot: new Set(), suffix: new Set(), pdd: new Set(), color: new Set(), dest: new Set(), model: new Set(), modelname: new Set() };
+const excelValues  = { lot: [], suffix: [], pdd: [], color: [], dest: [], model: [], modelname: [] };
 const excelColMap  = {
-    suffix : 'katashiki_suffix',
-    pdd    : 'plan_delivery_date',
-    color  : 'color_code',
-    dest   : 'destination',
-    model  : 'model'
+    lot       : 'lot_number',
+    suffix    : 'katashiki_suffix',
+    pdd       : 'plan_delivery_date',
+    color     : 'color_code',
+    dest      : 'destination',
+    model     : 'model',
+    modelname : 'model_name'
 };
 
 // ── Init ─────────────────────────────────────────────────────────────────────
@@ -24,8 +27,8 @@ $(document).ready(function () {
     $('#f-month').val(now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0'));
     $('#kap-badge').text(KAP.toUpperCase());
     initDataTable();
-    loadData();
-    $('#f-month').on('change', loadData);
+    loadModels();
+    $('#f-month').on('change', loadModels);
 });
 
 // ── DataTable ─────────────────────────────────────────────────────────────────
@@ -36,11 +39,13 @@ function initDataTable() {
             { data: null, orderable: false, searchable: false, render: (d, t, r, m) => m.row + 1 },
             { data: 'id',  orderable: false, searchable: false, render: id => `<input type="checkbox" class="row-chk" value="${id}">` },
             { data: 'sapnik',             defaultContent: '-' },
+            { data: 'lot_number',         defaultContent: '-' },
             { data: 'katashiki_suffix',   defaultContent: '-' },
             { data: 'plan_delivery_date', defaultContent: '-' },
             { data: 'color_code',         defaultContent: '-' },
             { data: 'destination',        defaultContent: '-' },
             { data: 'model', defaultContent: '-', render: m => `<b style="color:#007bff;">${m || '-'}</b>` },
+            { data: 'model_name',         defaultContent: '-' },
         ],
         orderCellsTop: true,
         pageLength: 50,
@@ -54,6 +59,10 @@ function initDataTable() {
             paginate: { first: '«', last: '»', next: '›', previous: '‹' },
             zeroRecords: 'Tidak ada data yang cocok',
             emptyTable: 'Tidak ada data'
+        },
+        rowCallback: function (row, data) {
+            // Tandai kuning jika SAPNIK sudah ada di Tabungan VLT untuk KAP ini.
+            $(row).toggleClass('row-in-tabungan', Number(data.in_tabungan) === 1);
         },
         drawCallback: function () {
             const api = this.api();
@@ -96,10 +105,56 @@ function initDataTable() {
     });
 }
 
-// ── Load data ─────────────────────────────────────────────────────────────────
-function loadData() {
+// ── Load model list (kartu model) ──────────────────────────────────────────────
+// Data dimuat per-model agar akses awal tidak berat (tidak ada lagi "Semua").
+function loadModels() {
     const ym = $('#f-month').val();
-    let params = 'already_process=0&exclude_master=1';
+    let params = 'kap=' + encodeURIComponent(KAP);
+    if (ym) {
+        const r = monthToRange(ym);
+        params += `&start_date=${r.start}&end_date=${r.end}`;
+    }
+
+    activeModel = '';
+    allData     = [];
+    selectedIds.clear();
+    updateSelectedCount();
+    if (dt) dt.clear().draw();
+
+    // Reset all excel filters + sapnik filter
+    Object.keys(excelFilters).forEach(key => {
+        excelFilters[key].clear();
+        updateDropdownBtn(key);
+        const panel = document.getElementById('dd-panel-' + key);
+        if (panel) panel.style.display = 'none';
+    });
+    $('#fc-sapnik').val('');
+    sapnikSet = new Set();
+    updateSapnikCount();
+
+    $('#model-cards').html('<div class="text-muted" style="font-size:9pt;">Memuat model...</div>');
+
+    $.get(`<?=base_url("pick_model_list")?>?${params}`, function (res) {
+        modelList = res.data || [];
+        renderModelCards();
+        // Otomatis pilih model pertama agar tabel langsung berisi (tetap ringan).
+        if (modelList.length > 0) filterByModel(modelList[0].model);
+    }).fail(function () {
+        modelList = [];
+        $('#model-cards').html('<div class="text-danger" style="font-size:9pt;">Gagal memuat daftar model</div>');
+    });
+}
+
+// ── Load data (per-model) ───────────────────────────────────────────────────────
+function loadData() {
+    if (!activeModel) {
+        if (dt) dt.clear().draw();
+        return;
+    }
+
+    const ym = $('#f-month').val();
+    let params = 'already_process=0&exclude_master=1&kap=' + encodeURIComponent(KAP)
+               + '&model=' + encodeURIComponent(activeModel);
     if (ym) {
         const r = monthToRange(ym);
         params += `&start_date=${r.start}&end_date=${r.end}`;
@@ -115,21 +170,22 @@ function loadData() {
         const panel = document.getElementById('dd-panel-' + key);
         if (panel) panel.style.display = 'none';
     });
+    // Reset filter VIN (sapnik) sepenuhnya termasuk badge/hitungannya
     $('#fc-sapnik').val('');
+    sapnikSet = new Set();
+    updateSapnikCount();
     if (dt) dt.columns().search('').draw();
 
     $('#table-loading').css('display', 'flex');
 
     $.get(`<?=base_url("load_bank_vlt")?>?${params}`, function (res) {
-        allData     = res.data || [];
-        activeModel = '';
+        allData = res.data || [];
 
         // Build unique value lists for every excel dropdown
         Object.entries(excelColMap).forEach(([key, field]) => {
             excelValues[key] = [...new Set(allData.map(r => r[field] || '').filter(Boolean))].sort();
         });
 
-        renderModelCards();
         if (dt) dt.clear().rows.add(allData).draw();
     }).fail(function () {
         if (dt) dt.clear().draw();
@@ -172,7 +228,7 @@ function buildDropdownPanel(key) {
 
     document.getElementById('dd-panel-' + key).innerHTML = `
         <div class="dt-dd-search">
-            <input type="text" class="form-control form-control-sm" placeholder="Cari nilai..." oninput="ddSearch(this,'${key}')">
+            <input type="text" class="form-control form-control-sm" placeholder="Cari nilai..." oninput="ddSearch(this,'${key}')" onkeydown="ddSearchKey(event,'${key}')">
         </div>
         <div class="dt-dd-select-all" onclick="ddClickSelectAll('${key}')">
             <input type="checkbox" id="dd-all-${key}" ${allChecked ? 'checked' : ''} onclick="event.stopPropagation(); ddToggleAll(this,'${key}')">
@@ -195,9 +251,36 @@ function esc(str) {
 function ddSearch(input, key) {
     const q = input.value.toLowerCase();
     document.querySelectorAll('#dd-list-' + key + ' .dt-dd-item').forEach(item => {
-        item.classList.toggle('dd-hidden', !item.querySelector('span').textContent.toLowerCase().includes(q));
+        const match = item.querySelector('span').textContent.toLowerCase().includes(q);
+        item.classList.toggle('dd-hidden', !match);
+        // Saat ada kata kunci: centang hanya yang cocok, uncheck sisanya
+        if (q !== '') {
+            const cb = item.querySelector('.dd-chk');
+            if (cb) cb.checked = match;
+        }
     });
-    syncDdSelectAll(key);
+
+    if (q !== '') {
+        // "Pilih Semua" mengikuti kondisi SELURUH item (bukan hanya yang tampil),
+        // jadi saat menyaring ia jadi indeterminate (-) karena tidak semua tercentang.
+        const allCb      = document.querySelectorAll('#dd-list-' + key + ' .dd-chk');
+        const allChecked = document.querySelectorAll('#dd-list-' + key + ' .dd-chk:checked');
+        const allChk     = document.getElementById('dd-all-' + key);
+        if (allChk) {
+            allChk.checked       = allCb.length > 0 && allChecked.length === allCb.length;
+            allChk.indeterminate = allChecked.length > 0 && allChecked.length < allCb.length;
+        }
+    } else {
+        syncDdSelectAll(key);
+    }
+}
+
+// Enter di kotak "Cari nilai..." = sama dengan klik tombol Terapkan
+function ddSearchKey(event, key) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        applyExcelFilter(key);
+    }
 }
 
 function ddClickSelectAll(key) {
@@ -256,12 +339,13 @@ document.addEventListener('click', () => {
 
 // ── Model cards ───────────────────────────────────────────────────────────────
 function renderModelCards() {
-    const counts = {};
-    allData.forEach(r => { const m = r.model || 'N/A'; counts[m] = (counts[m] || 0) + 1; });
-
-    let html = `<div class="mr-2 mb-2"><div class="model-card all-card ${activeModel === '' ? 'active' : ''}" onclick="filterByModel('')"><div class="mc-name">Semua</div><div class="mc-count">${allData.length} unit</div></div></div>`;
-    Object.entries(counts).sort().forEach(([m, c]) => {
-        html += `<div class="mr-2 mb-2"><div class="model-card ${activeModel === m ? 'active' : ''}" onclick="filterByModel('${m}')"><div class="mc-name">${m}</div><div class="mc-count">${c} unit</div></div></div>`;
+    if (!modelList.length) {
+        $('#model-cards').html('<div class="text-muted" style="font-size:9pt;">Tidak ada data untuk bulan ini</div>');
+        return;
+    }
+    let html = '';
+    modelList.forEach(m => {
+        html += `<div class="mr-2 mb-2"><div class="model-card ${activeModel === m.model ? 'active' : ''}" onclick="filterByModel('${m.model}')"><div class="mc-name">${m.model}</div><div class="mc-count">${m.total} unit</div></div></div>`;
     });
     $('#model-cards').html(html);
 }
@@ -269,10 +353,7 @@ function renderModelCards() {
 function filterByModel(model) {
     activeModel = model;
     renderModelCards();
-    excelFilters.model.clear();
-    if (model !== '') excelFilters.model.add(model);
-    updateDropdownBtn('model');
-    if (dt) dt.draw();
+    loadData(); // muat ulang data hanya untuk model terpilih (server-side)
 }
 
 // ── Checkboxes ────────────────────────────────────────────────────────────────
@@ -316,7 +397,7 @@ function resetFilter() {
     const now = new Date();
     $('#f-month').val(now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0'));
     clearSapnikFilter();
-    loadData();
+    loadModels();
 }
 
 function openSapnikModal() {
@@ -328,7 +409,14 @@ function applySapnikModal() {
     const lines = $('#fc-sapnik').val().split(/[\n\r,]+/).map(s => s.trim().toUpperCase()).filter(Boolean);
     sapnikSet = new Set(lines);
     updateSapnikCount();
-    if (dt) dt.draw();
+    if (dt) {
+        dt.draw();
+        // Auto-centang semua baris yang cocok dengan daftar SAPNIK yang difilter
+        dt.rows({ search: 'applied' }).data().each(r => selectedIds.add(String(r.id)));
+        $('#pick-table .row-chk').each(function () { $(this).prop('checked', selectedIds.has(this.value)); });
+        updateSelectedCount();
+        syncCheckAll();
+    }
     $('#modal-sapnik').modal('hide');
 }
 
@@ -349,6 +437,11 @@ function updateSapnikCount() {
         $('#sapnik-badge').hide();
         $('#btn-sapnik-filter').removeClass('btn-primary').addClass('btn-outline-primary');
     }
+}
+
+// ── Navigasi ke proses ─────────────────────────────────────────────────────────
+function lanjutProses() {
+    window.location.href = '<?=base_url()?>' + REDIRECT;
 }
 
 // ── Gunakan Data ──────────────────────────────────────────────────────────────
@@ -376,10 +469,26 @@ function gunakanData() {
         if (!result.isConfirmed) return;
         Swal.fire({ title: 'Memproses...', html: 'Mohon tunggu...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-        $.post('<?=base_url("use_bank_vlt")?>', { ids: ids, kap: KAP }, function (res) {
+        $.post('<?=base_url("use_bank_vlt")?>', { ids: ids.join(','), kap: KAP }, function (res) {
             if (res.status === 'ok') {
-                Swal.fire({ icon: 'success', title: 'Berhasil', text: res.message, timer: 2000, showConfirmButton: false })
-                    .then(() => { window.location.href = '<?=base_url()?>' + REDIRECT; });
+                // Tidak auto-redirect: tampilkan tombol "Lanjut ke Proses" agar user putuskan sendiri.
+                $('#btn-lanjut-proses').removeClass('d-none');
+                selectedIds.clear();
+                updateSelectedCount();
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil',
+                    text: res.message,
+                    showCancelButton: true,
+                    confirmButtonText: '<i class="fas fa-arrow-right"></i> Lanjut ke Proses',
+                    cancelButtonText: 'Tetap di Halaman Ini',
+                    confirmButtonColor: '#1976D2',
+                    cancelButtonColor: '#858796',
+                    reverseButtons: true
+                }).then(result => {
+                    if (result.isConfirmed) window.location.href = '<?=base_url()?>' + REDIRECT;
+                    else loadData(); // refresh agar data yang sudah diambil tidak tampil lagi
+                });
             } else {
                 Swal.fire('Gagal', res.message || 'Terjadi kesalahan', 'error');
             }

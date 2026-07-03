@@ -128,7 +128,6 @@ class Plan_WOS extends Construct {
 			}
 			if($insert){
 				$this->voice("sukses.mp3");
-				$url_tabungan_dummy = $plant == "KAP1" ? base_url("process_tabungan_dummy_kap1") : base_url("process_tabungan_dummy_kap2");
 				if(empty($info_takeout_suffix)){
 					$this->swal_custom_icon("Sukses","OK, Lanjutkan untuk upload tabungan, dan klik tetap disini untuk upload Plan WOS yang lain<br><a href='".base_url("tabungan")."' class='btn btn-sm btn-info mt-4'>Tabungan VLT</a><a href='".base_url("tabungan?plant=$plant&dummy=yes")."' class='btn btn-sm btn-info mt-4 ml-3'>Proses Tabungan Dummy</a><a href='javascript:void(0)' onclick='swal_close()' class='btn btn-sm btn-secondary mt-4 ml-3'>Tetap Disini</a>",base_url('assets/images/happy.png'),"","false");
 				}else{

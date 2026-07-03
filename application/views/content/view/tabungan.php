@@ -131,7 +131,8 @@
                     <a href="<?=base_url("download_docking")?>" target="_blank" class="btn btn-sm btn-success" title="Download Hasil Docking" style="height:35px;"><i class="fas fa-file-excel pr-1"></i> Download Docking</a>
                     <button class="btn btn-sm btn-secondary" style="height:35px; font-size:10pt;" id="docking-kap1" title="Docking" data-tipe="kap1" onclick="docking(this)">Docking</button>
                     <a href="<?=base_url("adjust_twotone")?>" class="btn btn-sm btn-secondary" title="Masuk Menu Twotone" style="height:35px;">Adjust TwoTone</a>
-                    <a href="<?=base_url("process_tabungan_dummy_kap1")?>" class="btn btn-sm btn-secondary" id="create_tabungan_dummy_kap1" title="Create Tabungan Dummy" style="height:35px;">Create Tabungan Dummy</a>
+                    <button class="btn btn-sm btn-secondary" id="create_tabungan_dummy_kap1" onclick="create_tabungan_dummy('kap1')" title="Create Tabungan Dummy" style="height:35px;">Create Tabungan Dummy</button>
+                    <!-- <a href="<?=base_url("process_tabungan_dummy_kap1")?>" class="btn btn-sm btn-secondary" id="create_tabungan_dummy_kap1" title="Create Tabungan Dummy" style="height:35px;">Create Tabungan Dummy</a> -->
                 </div>
             </div>
             <div class="table-responsive mt-3" style="height: calc(100vh - 170px);">
@@ -192,7 +193,7 @@
                     <a href="<?=base_url("download_docking?t=kap2")?>" target="_blank" class="btn btn-sm btn-success" title="Download Hasil Docking" style="height:35px;"><i class="fas fa-file-excel pr-1"></i> Download Docking</a>
                     <button class="btn btn-sm btn-secondary" style="height:35px; font-size:10pt;" id="docking" title="Docking" data-tipe="kap2" onclick="docking(this)">Docking</button>
                     <!-- <a href="<?=base_url("adjust_twotone?t=kap2")?>" class="btn btn-sm btn-secondary" title="Masuk Menu Twotone" style="height:35px;">Adjust TwoTone</a> -->
-                    <button class="btn btn-sm btn-secondary" id="create_tabungan_dummy_kap2" onclick="create_tabungan_dummy()" title="Create Tabungan Dummy" style="height:35px;">Create Tabungan Dummy</button>
+                    <button class="btn btn-sm btn-secondary" id="create_tabungan_dummy_kap2" onclick="create_tabungan_dummy('kap2')" title="Create Tabungan Dummy" style="height:35px;">Create Tabungan Dummy</button>
                 </div>
             </div>
             <div class="table-responsive mt-3" style="height: calc(100vh - 170px);">

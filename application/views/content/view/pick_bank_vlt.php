@@ -77,15 +77,26 @@
 
     @keyframes spin-pick { to { transform: rotate(360deg); } }
     #pick-table tbody tr { cursor: pointer; }
+
+    /* SAPNIK sudah ada di Tabungan VLT (KAP aktif) → baris kuning */
+    #pick-table tbody tr.row-in-tabungan,
+    #pick-table tbody tr.row-in-tabungan > td { background-color: #fff3cd !important; }
+    #pick-table tbody tr.row-in-tabungan:hover,
+    #pick-table tbody tr.row-in-tabungan:hover > td { background-color: #ffe69c !important; }
 </style>
 
 <div class="row justify-content-center">
     <div class="col-12" align="center">
         <h1 class="m-0 text-white" style="font-size:3rem;"><?=$title?></h1>
     </div>
-    <a href="<?=base_url("docking_wos_dummy")?>" class="btn btn-sm btn-danger" style="height:35px; position:absolute; top:15px; right:20px;">
-        <i class="fas fa-arrow-left mr-1"></i>Kembali
-    </a>
+    <div style="position:absolute; top:15px; right:20px; display:flex; gap:8px;">
+        <button type="button" id="btn-lanjut-proses" class="btn btn-sm btn-primary d-none" style="height:35px;" onclick="lanjutProses()">
+            <i class="fas fa-arrow-right mr-1"></i>Lanjut ke Proses
+        </button>
+        <a href="<?=base_url("docking_wos_dummy")?>" class="btn btn-sm btn-danger" style="height:35px;">
+            <i class="fas fa-arrow-left mr-1"></i>Kembali
+        </a>
+    </div>
 </div>
 
 <div class="card card-body mt-3">
@@ -173,21 +184,25 @@
                     <th style="width:36px;">No.</th>
                     <th style="width:30px;"><input type="checkbox" id="chk-all" title="Pilih Semua" onchange="toggleAll(this)"></th>
                     <th>SAPNIK</th>
+                    <th>Lot Number</th>
                     <th>Katashiki Suffix</th>
                     <th>Plan Delivery Date</th>
                     <th>Color Code</th>
                     <th>Destination</th>
                     <th>Model</th>
+                    <th>Model Name</th>
                 </tr>
                 <tr class="filter-row">
                     <th></th>
                     <th></th>
                     <th></th>
+                    <th><?php /* lot    */ ?><div class="dt-dropdown"><button class="dt-dd-btn" id="dd-btn-lot"    type="button" onclick="toggleDropdown(event,'lot')"   >Semua <i class="fas fa-chevron-down fa-xs"></i></button><div class="dt-dd-panel" id="dd-panel-lot"    style="display:none;"></div></div></th>
                     <th><?php /* suffix */ ?><div class="dt-dropdown"><button class="dt-dd-btn" id="dd-btn-suffix" type="button" onclick="toggleDropdown(event,'suffix')">Semua <i class="fas fa-chevron-down fa-xs"></i></button><div class="dt-dd-panel" id="dd-panel-suffix" style="display:none;"></div></div></th>
                     <th><?php /* pdd    */ ?><div class="dt-dropdown"><button class="dt-dd-btn" id="dd-btn-pdd"    type="button" onclick="toggleDropdown(event,'pdd')"   >Semua <i class="fas fa-chevron-down fa-xs"></i></button><div class="dt-dd-panel" id="dd-panel-pdd"    style="display:none;"></div></div></th>
                     <th><?php /* color  */ ?><div class="dt-dropdown"><button class="dt-dd-btn" id="dd-btn-color"  type="button" onclick="toggleDropdown(event,'color')" >Semua <i class="fas fa-chevron-down fa-xs"></i></button><div class="dt-dd-panel" id="dd-panel-color"  style="display:none;"></div></div></th>
                     <th><?php /* dest   */ ?><div class="dt-dropdown"><button class="dt-dd-btn" id="dd-btn-dest"   type="button" onclick="toggleDropdown(event,'dest')"  >Semua <i class="fas fa-chevron-down fa-xs"></i></button><div class="dt-dd-panel" id="dd-panel-dest"   style="display:none;"></div></div></th>
                     <th><?php /* model  */ ?><div class="dt-dropdown"><button class="dt-dd-btn" id="dd-btn-model"  type="button" onclick="toggleDropdown(event,'model')" >Semua <i class="fas fa-chevron-down fa-xs"></i></button><div class="dt-dd-panel" id="dd-panel-model"  style="display:none;"></div></div></th>
+                    <th><?php /* mdlnm  */ ?><div class="dt-dropdown"><button class="dt-dd-btn" id="dd-btn-modelname" type="button" onclick="toggleDropdown(event,'modelname')">Semua <i class="fas fa-chevron-down fa-xs"></i></button><div class="dt-dd-panel" id="dd-panel-modelname" style="display:none;"></div></div></th>
                 </tr>
             </thead>
             <tbody id="tbl-body"></tbody>
