@@ -69,10 +69,13 @@ if($show){
                                     <a href="<?=base_url("hard_copy_std")?>" class="text-white font-weight-bold" style="text-decoration:none">1.3.1. Hard Copy Standard</a>
                                 </li>
                                 <li>
-                                    <a href="<?=base_url("heijunka_wos_print")?>" class="text-white font-weight-bold" style="text-decoration:none">1.3.3. Backup Vehicle Card Print</a>
+                                    <a href="<?=base_url("heijunka_wos_print")?>" class="text-white font-weight-bold" style="text-decoration:none">1.3.2. Backup Vehicle Card Print</a>
                                 </li>
                                 <li>
                                     <a href="<?=base_url("filter/page")?>" class="text-white font-weight-bold" style="text-decoration:none">1.3.3. Setting Filter</a>
+                                </li>
+                                <li>
+                                    <a href="<?=base_url("pass_excel")?>" class="text-white font-weight-bold" style="text-decoration:none">1.3.4. Password File Excel</a>
                                 </li>
                             </ul>
                         </li>

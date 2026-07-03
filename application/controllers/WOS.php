@@ -390,7 +390,8 @@ class WOS extends Construct {
 		$this->output_protected_xlsx($excel, $filename);
 	}
 
-	// Simpan sebagai .xlsx lalu enkripsi dengan password buka file dari tabel pass_excel (id = 1)
+	// Simpan sebagai .xlsx dengan password edit dari tabel pass_excel (id = 1):
+	// file bisa dibuka siapa saja (read-only), password hanya diminta untuk edit
 	private function output_protected_xlsx($excel, $filename)
 	{
 		if (!class_exists('ZipArchive')) {
@@ -399,13 +400,13 @@ class WOS extends Construct {
 		$write = PHPExcel_IOFactory::createWriter($excel, 'Excel2007');
 		$tmp_file = tempnam(sys_get_temp_dir(), 'xlsx');
 		$write->save($tmp_file);
-		$data = file_get_contents($tmp_file);
-		@unlink($tmp_file);
 		$pass_excel = $this->model->gds("pass_excel", "pass", "id = 1", "row");
 		if (!empty($pass_excel->pass)) {
 			$this->load->library('xlsx_encryptor');
-			$data = $this->xlsx_encryptor->encrypt($data, $pass_excel->pass);
+			$this->xlsx_encryptor->setModifyPassword($tmp_file, $pass_excel->pass);
 		}
+		$data = file_get_contents($tmp_file);
+		@unlink($tmp_file);
 		header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 		header('Content-Disposition: attachment; filename="' . $filename . '.xlsx"');
 		header('Cache-Control: max-age=0');
@@ -660,6 +661,27 @@ class WOS extends Construct {
 	public function download_hardcopy_kap2()
 	{
 		$this->load->view("content/view/download_hardcopy_kap2");
+	}
+	public function pass_excel()
+	{
+		$data["title"] = "Password File Excel";
+		$data["javascript"] = "pass_excel";
+		$data["content"] = "view/pass_excel";
+		$this->load->view('layout/index',$data);
+	}
+	public function save_pass_excel()
+	{
+		$pass = trim($this->input->post("pass"));
+		if($pass == ""){
+			$this->fb(["statusCode" => 400, "message" => "Password tidak boleh kosong"]);
+		}
+		$row = $this->model->gds("pass_excel","id","id = 1","row");
+		if(empty($row)){
+			$this->model->insert("pass_excel",["id" => 1, "pass" => $pass]);
+		}else{
+			$this->model->update("pass_excel","id = 1",["pass" => $pass]);
+		}
+		$this->fb(["statusCode" => 200, "message" => "Password file excel berhasil disimpan"]);
 	}
 	public function hard_copy_std()
 	{

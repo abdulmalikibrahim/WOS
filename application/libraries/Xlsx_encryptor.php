@@ -4,15 +4,23 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 /**
  * Xlsx_encryptor
  *
- * Membungkus file .xlsx menjadi file terenkripsi dengan password saat buka,
- * memakai ECMA-376 Standard Encryption (AES-128 + SHA-1) di dalam container
- * OLE Compound File — format yang sama dengan fitur "Encrypt with Password"
- * di Microsoft Excel 2007+.
+ * Dua mode proteksi file .xlsx:
  *
- * Butuh ekstensi PHP: openssl.
+ * 1. setModifyPassword($filePath, $password)
+ *    Password hanya untuk EDIT ("password to modify"): file bisa dibuka
+ *    siapa saja secara read-only, tapi Excel minta password untuk write
+ *    access. Diimplementasikan lewat elemen <fileSharing> di workbook.xml.
+ *
+ * 2. encrypt($xlsxBinary, $password)
+ *    Password saat BUKA file: enkripsi ECMA-376 Standard Encryption
+ *    (AES-128 + SHA-1) dalam container OLE Compound File, sama dengan
+ *    fitur "Encrypt with Password" Microsoft Excel 2007+.
+ *    Butuh ekstensi PHP: openssl.
  *
  * Pemakaian:
  *   $this->load->library('xlsx_encryptor');
+ *   $this->xlsx_encryptor->setModifyPassword($tmpFile, $password);
+ *   // atau
  *   $encrypted = $this->xlsx_encryptor->encrypt($xlsxBinary, $password);
  */
 class Xlsx_encryptor
@@ -28,6 +36,103 @@ class Xlsx_encryptor
     const FATSECT     = 0xFFFFFFFD;
     const DIFSECT     = 0xFFFFFFFC;
     const NOSTREAM    = 0xFFFFFFFF;
+
+    /**
+     * Set "password to modify" pada file xlsx: file tetap bisa dibuka
+     * siapa saja (read-only), tapi Excel minta password untuk edit.
+     * File di path diubah langsung (in-place).
+     *
+     * @param string $filePath path file .xlsx
+     * @param string $password password untuk write access
+     */
+    public function setModifyPassword($filePath, $password)
+    {
+        $hash = $this->legacyPasswordHash($password);
+        $tag  = '<fileSharing userName="WOCS Apps" reservationPassword="' . $hash . '"/>';
+
+        $xml = $this->zipRead($filePath, 'xl/workbook.xml');
+        if ($xml === false || $xml === null) {
+            throw new Exception('xl/workbook.xml tidak ditemukan di file xlsx');
+        }
+
+        // fileSharing harus berada tepat setelah fileVersion (urutan schema CT_Workbook)
+        if (strpos($xml, '<fileSharing') !== false) {
+            $xml = preg_replace('/<fileSharing[^>]*>/', $tag, $xml, 1);
+        } elseif (strpos($xml, '<fileVersion') !== false) {
+            $xml = preg_replace('/(<fileVersion[^>]*>)/', '$1' . $tag, $xml, 1);
+        } else {
+            $xml = preg_replace('/(<workbook[^>]*>)/', '$1' . $tag, $xml, 1);
+        }
+
+        $this->zipReplace($filePath, 'xl/workbook.xml', $xml);
+    }
+
+    /**
+     * Hash password 16-bit legacy Excel (ST_UnsignedShortHex), algoritma yang
+     * sama dengan PHPExcel_Shared_PasswordHasher untuk proteksi sheet.
+     */
+    private function legacyPasswordHash($password)
+    {
+        $hash = 0x0000;
+        $pos  = 1;
+        foreach (str_split($password) as $char) {
+            $value = ord($char) << $pos++;
+            $hash ^= (($value & 0x7fff) | ($value >> 15));
+        }
+        $hash ^= strlen($password);
+        $hash ^= 0xCE4B;
+        return strtoupper(dechex($hash));
+    }
+
+    private function zipRead($filePath, $entry)
+    {
+        if (class_exists('ZipArchive')) {
+            $zip = new ZipArchive();
+            if ($zip->open($filePath) !== true) {
+                throw new Exception('Gagal membuka file xlsx: ' . $filePath);
+            }
+            $content = $zip->getFromName($entry);
+            $zip->close();
+            return $content;
+        }
+        $list = $this->pclzip($filePath)->extract(PCLZIP_OPT_BY_NAME, $entry, PCLZIP_OPT_EXTRACT_AS_STRING);
+        if (!is_array($list) || empty($list[0]['content'])) {
+            return false;
+        }
+        return $list[0]['content'];
+    }
+
+    private function zipReplace($filePath, $entry, $content)
+    {
+        if (class_exists('ZipArchive')) {
+            $zip = new ZipArchive();
+            if ($zip->open($filePath) !== true) {
+                throw new Exception('Gagal membuka file xlsx: ' . $filePath);
+            }
+            $zip->addFromString($entry, $content); // menimpa entry lama
+            $zip->close();
+            return;
+        }
+        // fallback PclZip: tulis ke file sementara lalu delete + add
+        $zip     = $this->pclzip($filePath);
+        $tmpDir  = rtrim(sys_get_temp_dir(), '/\\');
+        $tmpFile = $tmpDir . DIRECTORY_SEPARATOR . basename($entry);
+        file_put_contents($tmpFile, $content);
+        $zip->delete(PCLZIP_OPT_BY_NAME, $entry);
+        $result = $zip->add($tmpFile, PCLZIP_OPT_REMOVE_PATH, $tmpDir, PCLZIP_OPT_ADD_PATH, dirname($entry));
+        @unlink($tmpFile);
+        if ($result == 0) {
+            throw new Exception('Gagal menulis ulang ' . $entry . ': ' . $zip->errorInfo(true));
+        }
+    }
+
+    private function pclzip($filePath)
+    {
+        if (!class_exists('PclZip')) {
+            require_once APPPATH . 'libraries/PHPExcel/Shared/PCLZip/pclzip.lib.php';
+        }
+        return new PclZip($filePath);
+    }
 
     /**
      * Enkripsi isi file xlsx dengan password (password diminta saat file dibuka).
